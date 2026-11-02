@@ -162,13 +162,20 @@
   .ocard p { margin: 4px 0 18px; color: var(--muted); }
 
   /* main menu */
-  #menu { position: fixed; inset: 0; z-index: 15; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
-  .menucard { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 420px; width: 100%; }
-  .menucard .logo { font-size: clamp(40px, 12vw, 72px); font-weight: 900; letter-spacing: 6px; color: var(--gold); text-shadow: 0 4px 0 #000, 0 0 24px #e8b84a55; }
-  .menucard .tagline { color: var(--muted); margin-bottom: 18px; letter-spacing: 1px; }
+  #menu { position: fixed; inset: 0; z-index: 15; background: #3a2a63; display: flex; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto; }
+  #titleCanvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; image-rendering: pixelated; z-index: 0; }
+  #menu::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, #1a0f2e99 100%); }
+  .menucard { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; max-width: 420px; width: 100%; margin-top: clamp(16px, 7vh, 80px); }
+  .menucard .logo { font-size: clamp(40px, 12vw, 78px); font-weight: 900; letter-spacing: 6px; color: #ffd45e;
+    background: linear-gradient(100deg, #ffd45e 38%, #fffbe0 50%, #ffd45e 62%) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 0 #3a1a08) drop-shadow(0 0 18px #ffb34788); animation: logoshine 5s ease-in-out infinite; }
+  @keyframes logoshine { 0%, 55% { background-position: 100% 0; } 85%, 100% { background-position: 0 0; } }
+  .menucard .tagline { color: #fff1d0; margin-bottom: 14px; letter-spacing: 2px; text-shadow: 0 2px 0 #3a1a0888, 0 0 8px #3a1a0866; }
+  .menupanel { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 340px; padding: 20px 22px 16px; background: #1b122acc; border: 3px solid #8a6330; border-radius: 12px; box-shadow: 0 6px 0 #0007, inset 0 0 0 2px #3a2a1a; }
   .menucard button.big { width: 100%; max-width: 280px; font-size: 20px; padding: 14px 18px; }
   .menunote { min-height: 18px; font-size: 13px; color: var(--gold); }
   .menufine { font-size: 12px; color: var(--muted); max-width: 320px; }
+  @media (prefers-reduced-motion: reduce) { .menucard .logo { animation: none; } }
   /* tutorial */
   #tut { background: var(--panel2); border: 3px solid var(--gold); border-radius: 10px; padding: 12px 16px; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
   #tut .tuttag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
@@ -246,14 +253,16 @@
   </section>
 </div>
 <div id="menu" class="hidden">
+  <canvas id="titleCanvas" aria-hidden="true"></canvas>
   <div class="menucard">
     <div class="logo">WARBANDS</div>
-    <div class="tagline">A medieval auto battler</div>
+    <div class="tagline">Small heroes. Big battles.</div>
+    <div class="menupanel">
     <button id="menuPlay" class="primary big">Play</button>
     <button id="menuTut" class="big">Tutorial</button>
     <button id="menuSkip" class="linkbtn">Skip the tutorial</button>
     <div class="menunote" id="menuNote"></div>
-    <div class="menufine">Win 10 fights before you lose 5 lives. Every run has its own set of 3 races.</div>
+    </div>
   </div>
 </div>
 <div id="overlay" class="hidden"></div>
@@ -1655,6 +1664,204 @@
 
 </script>
 <script>
+/*
+ * Warbands title screen: a pixel-art dusk scene drawn with code (no image files).
+ * Sky, sun, clouds, far mountains with a castle, hills with pine trees, two flapping banners, embers and mist.
+ * The scene is drawn on a small 320x180 canvas and scaled up with hard edges (image-rendering: pixelated).
+ * Swap a layer for a real image later by replacing its draw function.
+ */
+(function () {
+  'use strict';
+  const W = 320, H = 180;
+  const canvas = document.getElementById('titleCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+
+  // ------------------------------------------------------------ helpers
+  function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mix = (a, b, t) => { const A = hex(a), B = hex(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',') + ')'; };
+  const rect = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  const mod = (a, n) => ((a % n) + n) % n;
+
+  // ------------------------------------------------------------ palette (warm dusk)
+  const SKY = ['#3a2a63', '#6a3a7a', '#a8486f', '#d9606a', '#f08a5d', '#f7b955', '#ffd98a'];
+  const RACE = { Human: ['#4f84d4', '#2f5a9a'], Elf: ['#3fb383', '#227a55'], Orc: ['#c05a37', '#7e3219'], Dwarf: ['#b8923f', '#7a5a1c'], Fae: ['#a56bd1', '#6a3a92'], Clockwork: ['#8f98a8', '#565e6e'] };
+  const RACES = Object.keys(RACE);
+  const pick = mulberry32(Math.floor(Math.random() * 1e9));
+  const left = RACES[Math.floor(pick() * RACES.length)];
+  let right = RACES[Math.floor(pick() * RACES.length)];
+  while (right === left) right = RACES[Math.floor(pick() * RACES.length)];
+
+  // ------------------------------------------------------------ static data (fixed seed, so the scene never changes between loads)
+  const rnd = mulberry32(7);
+  const stars = Array.from({ length: 28 }, () => ({ x: Math.floor(rnd() * W), y: Math.floor(rnd() * 56), p: rnd() * 6 }));
+  const clouds = Array.from({ length: 6 }, (_, i) => ({ x: rnd() * (W + 80), y: 14 + i * 11 + rnd() * 6, w: 26 + rnd() * 30, s: 2 + rnd() * 3 }));
+  const embers = Array.from({ length: 38 }, () => ({ x: rnd() * W, y: rnd() * H, v: 7 + rnd() * 16, p: rnd() * 6.28, c: Math.floor(rnd() * 3), big: rnd() < 0.2 }));
+  const LAYER_W = 400;                                      // width of the looping hill layers
+  const trees = Array.from({ length: 22 }, () => ({ x: rnd() * LAYER_W, h: 12 + Math.floor(rnd() * 12) }));
+  const trees2 = Array.from({ length: 16 }, () => ({ x: rnd() * LAYER_W, h: 18 + Math.floor(rnd() * 14) }));
+
+  // Looping hill shapes: sums of sines with whole numbers of cycles over LAYER_W, so they tile without a seam.
+  const wave = (x, k1, k2, k3, a1, a2, a3, ph) => a1 * Math.sin(6.2832 * (k1 * x / LAYER_W + ph)) + a2 * Math.sin(6.2832 * (k2 * x / LAYER_W + ph * 2)) + a3 * Math.sin(6.2832 * (k3 * x / LAYER_W + ph * 3));
+  const farTop = x => 110 - 16 + wave(x, 2, 5, 9, 12, 5, 2, 0.1);
+  const midTop = x => 132 - 6 + wave(x, 3, 7, 11, 8, 4, 1.5, 0.4);
+  const nearTop = x => 150 - 4 + wave(x, 2, 6, 10, 6, 3, 1, 0.7);
+
+  // ------------------------------------------------------------ layers
+  function drawSky(t) {
+    for (let y = 0; y < H; y += 3) {
+      const f = Math.min(1, y / 128) * (SKY.length - 1);
+      const i = Math.min(SKY.length - 2, Math.floor(f));
+      const q = Math.round((f - i) * 4) / 4;                // banded gradient: looks like hand-placed colour steps
+      rect(0, y, W, 3, mix(SKY[i], SKY[i + 1], q));
+    }
+    stars.forEach(s => { if (Math.sin(t * 1.6 + s.p) > -0.2) rect(s.x, s.y, 1, 1, 'rgba(255,240,210,.85)'); });
+  }
+  function drawSun() {
+    const cx = 86, cy = 92;
+    for (let y = -34; y <= 34; y++) for (let x = -34; x <= 34; x++) {
+      const d = Math.sqrt(x * x + y * y);
+      if (d <= 19) rect(cx + x, cy + y, 1, 1, d < 15 ? '#fff0b0' : '#ffe08a');
+      else if (d <= 24 && (x + y) % 2 === 0) rect(cx + x, cy + y, 1, 1, 'rgba(255,225,140,.55)');
+      else if (d <= 33 && (x + y) % 4 === 0) rect(cx + x, cy + y, 1, 1, 'rgba(255,200,120,.35)');
+    }
+  }
+  function drawClouds(t) {
+    clouds.forEach(c => {
+      const x = mod(c.x + t * c.s, W + 80) - 40, w = Math.round(c.w);
+      rect(x, c.y, w, 3, '#f7a78f'); rect(x + 4, c.y - 3, w - 12, 3, '#fbc0a0'); rect(x + 8, c.y - 5, Math.round(w / 3), 2, '#ffd9b8');
+      rect(x + 2, c.y + 3, w - 6, 2, '#c8607a');
+    });
+  }
+  // A looping hill layer. top(x) gives the surface height; the scroll offset is in layer pixels.
+  function drawHills(top, color, edge, scroll) {
+    for (let x = 0; x < W; x++) {
+      const lx = mod(x + scroll, LAYER_W), y = Math.round(top(lx));
+      rect(x, y, 1, H - y, color);
+      rect(x, y, 1, 1, edge);
+    }
+  }
+  function drawCastle(scroll, t) {
+    const base = 244;                                        // position in layer space
+    for (const off of [0, -LAYER_W, LAYER_W]) {
+      const sx = base + off - scroll;
+      if (sx < -50 || sx > W + 50) continue;
+      const gy = Math.round(farTop(mod(base, LAYER_W))) + 2;
+      const c = '#4f2f66', c2 = '#5f3b78';
+      rect(sx - 18, gy - 14, 36, 14, c);                     // wall
+      for (let i = 0; i < 6; i++) rect(sx - 18 + i * 6, gy - 17, 3, 3, c);   // battlements
+      rect(sx - 24, gy - 26, 9, 26, c2); rect(sx + 15, gy - 26, 9, 26, c2);  // side towers
+      rect(sx - 24, gy - 29, 3, 3, c2); rect(sx - 18, gy - 29, 3, 3, c2); rect(sx + 15, gy - 29, 3, 3, c2); rect(sx + 21, gy - 29, 3, 3, c2);
+      rect(sx - 7, gy - 36, 14, 36, c2);                      // keep
+      for (let i = 0; i < 4; i++) rect(sx - 7 + i * 4, gy - 39, 3, 3, c2);
+      rect(sx - 1, gy - 46, 2, 8, '#3a2350');                 // flag pole
+      const fl = Math.round(Math.sin(t * 5) * 1);
+      rect(sx + 1, gy - 46 + fl, 6, 3, '#e8b84a');           // pennant
+      const lit = (x, y, ph) => { if (Math.sin(t * 2.2 + ph) > -0.6) rect(sx + x, gy + y, 2, 3, '#ffd27a'); };
+      lit(-4, -30, 0); lit(2, -30, 1.5); lit(-20, -20, 3); lit(18, -20, 4.5); lit(-4, -10, 2); lit(2, -10, 5);
+    }
+  }
+  function drawTrees(list, scroll, top, color, light) {
+    list.forEach(tr => {
+      for (const off of [0, -LAYER_W]) {
+        const sx = Math.round(tr.x + off - scroll);
+        if (sx < -10 || sx > W + 10) continue;
+        const gy = Math.round(top(mod(tr.x, LAYER_W))) + 2;
+        const h = tr.h, w = Math.max(5, Math.round(h * 0.5));
+        rect(sx - 1, gy - 3, 2, 4, '#1a1030');                // trunk
+        for (let i = 0; i < 4; i++) {                          // stacked triangles
+          const lh = Math.round(h / 4) + 2, ww = Math.round(w * (1 - i * 0.18)) | 1;
+          rect(sx - (ww >> 1), gy - 3 - (i + 1) * Math.round(h / 4.5), ww, lh, color);
+          rect(sx - (ww >> 1), gy - 3 - (i + 1) * Math.round(h / 4.5), 1, lh, light);
+        }
+        rect(sx - 1, gy - 3 - h, 2, 3, color);
+      }
+    });
+  }
+  function drawBanner(px, race, dir, t) {
+    const [main, dark] = RACE[race];
+    const top = 94;
+    rect(px - 1, top - 4, 3, 84, '#4a2f1c'); rect(px, top - 4, 1, 84, '#6b4528');        // pole
+    rect(px - 3, top - 6, 7, 3, '#e8b84a');                                              // finial
+    const cw = 20, ch = 38, notch = 9;
+    const phase = dir > 0 ? 0 : 1.7;
+    const swayAt = r => Math.sin(t * 2.6 + r * 0.13 + phase) * (0.5 + r / ch * 1.7);
+    for (let r = 0; r < ch; r++) {
+      const x0 = px + (dir > 0 ? 2 : -2 - cw) + Math.round(swayAt(r)) * dir;
+      const c = r < 3 ? '#e8b84a' : (r % 7 === 6 ? dark : main);
+      if (r < ch - notch) rect(x0, top + r, cw, 1, c);
+      else {                                                  // swallow tail: two legs with a growing gap
+        const g = (r - (ch - notch) + 1) * 2, leg = (cw - g) >> 1;
+        rect(x0, top + r, Math.max(1, leg), 1, c);
+        rect(x0 + cw - Math.max(1, leg), top + r, Math.max(1, leg), 1, c);
+      }
+      if (r > 4 && r < ch - notch) { rect(x0 + 1, top + r, 1, 1, dark); rect(x0 + cw - 2, top + r, 1, 1, dark); }
+    }
+    // little crest: a gold diamond
+    const mx = px + (dir > 0 ? 2 : -2 - cw) + (cw >> 1) + Math.round(swayAt(17)) * dir;
+    for (let i = -4; i <= 4; i++) rect(mx - (4 - Math.abs(i)), top + 17 + i, (4 - Math.abs(i)) * 2 + 1, 1, '#ffe08a');
+  }
+  function drawEmbers(t) {
+    const cols = ['#ffb347', '#ff7a3d', '#ffe08a'];
+    embers.forEach(e => {
+      const y = mod(e.y - t * e.v, H + 20) - 10, x = e.x + Math.sin(t * 0.9 + e.p) * 7;
+      if (Math.sin(t * 5 + e.p * 3) < -0.7) return;           // flicker
+      rect(x, y, e.big ? 2 : 1, e.big ? 2 : 1, cols[e.c]);
+    });
+  }
+  function drawMist(t) {
+    for (let k = 0; k < 3; k++) {
+      const y0 = 140 + k * 8, a = 0.045 + k * 0.02;
+      for (let x = 0; x < W; x += 4) {
+        const wob = Math.sin(x * 0.025 + t * 0.4 + k * 2) * 2;
+        rect(x, y0 + wob, 4, 5, 'rgba(255,214,225,' + a + ')');
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ frame
+  function frame(t) {
+    drawSky(t);
+    drawSun();
+    drawClouds(t);
+    drawHills(farTop, '#7a4f86', '#9a6a9c', t * 1.5);
+    drawCastle(t * 1.5, t);
+    drawHills(midTop, '#4d3568', '#6a4a80', t * 3);
+    drawTrees(trees, t * 3, midTop, '#3a2858', '#4a3470');
+    drawHills(nearTop, '#2a1d44', '#3c2a5c', t * 6);
+    drawTrees(trees2, t * 6, nearTop, '#1d1432', '#2c2048');
+    rect(0, 168, W, 12, '#150e24');                           // dark ground behind the menu
+    rect(0, 167, W, 1, '#2a1d44');
+    drawBanner(34, left, 1, t);
+    drawBanner(W - 34, right, -1, t);
+    drawMist(t);
+    drawEmbers(t);
+  }
+
+  // ------------------------------------------------------------ loop: only runs while the menu is on screen
+  let running = false, t0 = 0, last = 0;
+  const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function tick(now) {
+    const menu = document.getElementById('menu');
+    if (!menu || menu.classList.contains('hidden')) { running = false; return; }
+    if (now - last >= 33) { last = now; frame((now - t0) / 1000); }   // about 30 frames per second
+    requestAnimationFrame(tick);
+  }
+  window.TitleScene = {
+    start() {
+      if (still) { frame(3); return; }
+      if (running) return;
+      running = true; t0 = performance.now() - 3000; last = 0;
+      requestAnimationFrame(tick);
+    },
+  };
+  frame(3);
+})();
+
+</script>
+<script>
 /* Medieval Auto Battler: interface. Talks to the engine in game.js (window.Game). */
 (function () {
   'use strict';
@@ -2641,6 +2848,7 @@
     $('menuPlay').disabled = !done;
     $('menuTut').classList.toggle('btnpulse', !done);
     $('menuTut').textContent = 'Tutorial';
+    if (window.TitleScene) window.TitleScene.start();
     $('menuSkip').classList.toggle('hidden', done);
     $('menuNote').textContent = done ? '' : 'Finish or skip the tutorial to unlock Play.';
     $('menu').classList.remove('hidden');
