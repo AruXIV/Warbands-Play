@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Warbands</title>
+<style>
+  :root {
+    --bg: #17120f; --panel: #231a14; --panel2: #2e2219; --line: #5a4129;
+    --text: #efe3c8; --muted: #a8977a; --gold: #e8b84a; --red: #c8453a; --green: #58b368; --blue: #5b8ad6;
+    --cell: clamp(58px, 12vw, 94px);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: ui-monospace, "Cascadia Mono", "Courier New", monospace; min-height: 100vh; }
+  #app { max-width: 1020px; margin: 0 auto; padding-block: 12px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .hidden { display: none !important; }
+
+  /* header */
+  #top { display: flex; gap: 10px 22px; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 10px 14px; font-weight: 700; }
+  #top .stat b { color: var(--gold); }
+  #top .hearts { color: var(--red); letter-spacing: 2px; }
+  #top .hbtns { order: -1; flex: 1 0 100%; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  #top button { padding: 6px 12px; }
+  #msg { min-height: 22px; margin: 8px 2px 0; color: var(--gold); font-size: 14px; }
+  #msg.bad { color: #ff8a7a; }
+
+  /* arena */
+  #arena { display: flex; justify-content: center; align-items: flex-start; gap: 26px; margin: 14px 0 18px; flex-wrap: wrap; }
+  .side { display: flex; flex-direction: column; gap: 10px; }
+  .side .title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  #vs { align-self: center; font-size: 22px; font-weight: 800; color: var(--gold); }
+  .grid { display: grid; grid-template-columns: repeat(3, var(--cell)); grid-template-rows: repeat(2, var(--cell));
+    gap: 4px; padding: 8px; background: var(--panel); border: 2px solid var(--line); border-radius: 10px; }
+  .grid { justify-content: center; align-self: center; }
+  .benchbox { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .bench { --bs: max(46px, calc(var(--cell) * .66)); display: grid; grid-template-columns: repeat(6, var(--bs)); gap: 4px;
+    padding: 6px; background: var(--panel); border: 2px solid var(--line); border-radius: 10px; }
+  .bench.idle { opacity: .6; }
+  .bslot { width: var(--bs); height: var(--bs); border: 2px dashed #5a412977; border-radius: 8px; background: #0003; }
+  .bslot.live { cursor: pointer; }
+  .bslot.live:hover { border-color: var(--gold); background: #e8b84a14; }
+  .bslot .unit { --cell: var(--bs); margin: 0; width: 100%; height: 100%; }
+  .bslot .unit .nm { font-size: 8px; }
+  .bslot .unit .stars { font-size: 9px; top: 1px; right: 3px; }
+  .slot { margin: 3px; border: 2px dashed #5a412977; border-radius: 8px; background: #0003; }
+  .slot.live { cursor: pointer; }
+  .slot.live:hover { border-color: var(--gold); background: #e8b84a14; }
+
+  /* health bar */
+  .bar { position: relative; height: 28px; }
+  .bar .track { position: absolute; inset: 0; background: #0007; border: 2px solid #000; border-radius: 6px; overflow: hidden; }
+  .bar .fill { height: 100%; width: 100%; background: linear-gradient(#e0574a, #a82f27); transition: width .12s linear; }
+  .bar .shieldbar { position: absolute; left: 0; bottom: 0; height: 5px; width: 0; background: var(--blue); transition: width .12s linear; }
+  .bar .label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; text-shadow: 0 1px 0 #000; }
+  .bar .slowtag { position: absolute; right: 8px; bottom: -17px; font-size: 11px; color: #d9b8ff; pointer-events: none; }
+  .unit.hexed { outline: 3px solid #b070e0; outline-offset: -3px; }
+  #foeline { font-size: 12px; color: #d9b8ff; }
+  #raceline { font-size: 12px; color: var(--muted); }
+  #info .monotag { color: var(--gold); font-size: 12px; margin: 0 0 6px; }
+  .bar .floats { position: absolute; inset: 0; pointer-events: none; }
+  .bar.hit .track { border-color: #fff; }
+  .float { position: absolute; top: -4px; font-weight: 800; font-size: 15px; text-shadow: 0 1px 0 #000, 0 0 4px #000; animation: floatup .9s ease-out forwards; }
+  .float.ward { color: #9cc2ff; } .float.delay { color: #d9b8ff; font-size: 13px; }
+  .float.dmg { color: #ffd9d4; } .float.bolt { color: #c9a5ff; font-size: 18px; } .float.heal { color: #8fe29d; }
+  @keyframes floatup { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-34px); } }
+
+  /* unit tiles (placeholders until the real sprites exist) */
+  .unit { position: relative; margin: 3px; border: 3px solid #0008; border-radius: 8px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; cursor: pointer; user-select: none;
+    box-shadow: inset 0 -6px 0 #0004, 0 2px 0 #000a; }
+  .unit.race-Human { background: linear-gradient(#4f84d4, #2f5a9a); }
+  .unit.race-Elf { background: linear-gradient(#3fb383, #227a55); }
+  .unit.race-Orc { background: linear-gradient(#c05a37, #7e3219); }
+  .unit.race-Dwarf { background: linear-gradient(#b8923f, #7a5a1c); }
+  .unit.race-Fae { background: linear-gradient(#a56bd1, #6a3a92); }
+  .unit.race-Clockwork { background: linear-gradient(#8f98a8, #565e6e); }
+  .chip { display: inline-block; padding: 1px 8px; margin: 0 2px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 1px solid #0008; text-shadow: 0 1px 0 #000; color: #fff; }
+  .chip.race-Human { background: #3f6db8; } .chip.race-Elf { background: #2f9970; } .chip.race-Orc { background: #a84a2b; }
+  .chip.race-Dwarf { background: #9b7a30; } .chip.race-Fae { background: #8b57b5; } .chip.race-Clockwork { background: #6f788a; }
+  .ocard .racelist { text-align: left; margin: 0 0 14px; font-size: 13px; line-height: 1.5; }
+  .ocard .racelist div { margin: 6px 0; color: var(--text); }
+  .ocard .fine { font-size: 12px; margin: 0 0 16px; }
+  .unit.top { border-color: var(--gold); box-shadow: inset 0 -6px 0 #0004, 0 0 10px #e8b84a88; }
+  [data-drag-shop] { touch-action: pan-x; }
+  [data-drag-uid] { touch-action: none; }
+  body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+  .dragsrc { opacity: .4; }
+  .dropover { outline: 3px dashed var(--gold); outline-offset: -3px; background: #e8b84a22; }
+  .unit.ghost { position: fixed; z-index: 30; margin: 0; pointer-events: none; opacity: .92; transform: scale(1.05); box-shadow: 0 6px 16px #000a; }
+  .unit.selected { outline: 3px solid var(--gold); outline-offset: 1px; }
+  .unit .ico { font-size: calc(var(--cell) * .40); line-height: 1; }
+  .unit .sprite { width: 78%; height: 78%; image-rendering: pixelated; object-fit: contain; }
+  .unit .nm { font-size: 10px; font-weight: 700; text-shadow: 0 1px 0 #000; text-align: center; line-height: 1.1; padding: 0 2px; }
+  .unit .stars { position: absolute; top: 2px; right: 4px; color: var(--gold); font-size: 11px; text-shadow: 0 1px 0 #000; }
+  .unit .badge { position: absolute; left: 4px; bottom: 3px; font-size: 11px; font-weight: 700; background: #000b; padding: 0 4px; border-radius: 3px; }
+  .unit.mirror .ico, .unit.mirror .sprite { transform: scaleX(-1); }
+  .unit.atk-r { animation: lunge-r .26s ease-out; }
+  .unit.atk-l { animation: lunge-l .26s ease-out; }
+  .unit.glow { animation: glow .45s ease-out; }
+  @keyframes lunge-r { 40% { transform: translateX(calc(var(--cell) * .35)); } }
+  @keyframes lunge-l { 40% { transform: translateX(calc(var(--cell) * -.35)); } }
+  @keyframes glow { 30% { filter: brightness(1.8); box-shadow: 0 0 14px #8fe29d; } }
+
+  /* shop */
+  #shopArea { display: flex; flex-direction: column; gap: 12px; }
+  #shop { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  #lower { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  #controls { flex: 1 1 340px; }
+  #odds { font-size: 12px; color: var(--muted); }
+  #odds b { color: var(--text); font-weight: 700; }
+  .card { flex: 1 1 0; min-width: 158px; min-height: 92px; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: 8px;
+    display: flex; gap: 8px; cursor: pointer; }
+  .card:hover { border-color: #8a6638; }
+  .card.selected { border-color: var(--gold); background: var(--panel2); }
+  .card.poor { opacity: .5; }
+  .card.empty { opacity: .25; cursor: default; }
+  .card .unit { --cell: 54px; width: 54px; height: 54px; flex: none; margin: 0; cursor: inherit; }
+  .card .meta { font-size: 11px; color: var(--muted); line-height: 1.35; }
+  .card .meta b { color: var(--text); font-size: 13px; }
+  .card .cost { color: var(--gold); font-weight: 700; }
+  .card .mergetag { color: var(--gold); font-size: 11px; font-weight: 700; margin-top: 2px; }
+  #controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; font-weight: 700; color: var(--text); background: var(--panel2); border: 2px solid var(--line);
+    border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--gold); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: #7a5a1c; border-color: var(--gold); }
+  button.on { border-color: var(--gold); color: var(--gold); }
+  #info { flex: 1 1 280px; max-width: 420px; min-height: 150px; background: var(--panel); border: 2px solid var(--line);
+    border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
+  #info h3 { margin: 0 0 4px; font-size: 16px; }
+  #info .sub { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  #info .stats { margin-top: 8px; color: var(--gold); }
+  #info p { margin: 6px 0; }
+  #info .tip { color: var(--muted); }
+  #info .lvline { color: var(--muted); padding-left: 6px; border-left: 3px solid transparent; }
+  #info .lvline b { color: var(--text); }
+  #info .lvline.cur { color: var(--text); border-left-color: var(--gold); }
+  #info .lvline.next { opacity: .75; }
+  #info .lvline .mult { color: #9ec7ff; }
+  #info .lvnote { font-size: 11px; color: var(--muted); margin: 2px 0 6px; }
+  #info .live { color: var(--gold); margin: 0 0 8px; padding: 6px 8px; background: #0003; border-radius: 6px; }
+  .kw { border-bottom: 1px dotted currentColor; cursor: help; outline: none; }
+  .kwtip { position: fixed; z-index: 40; max-width: 240px; padding: 7px 10px; background: #1b130c; color: var(--text); border: 2px solid var(--gold);
+    border-radius: 8px; font-size: 12px; line-height: 1.35; pointer-events: none; box-shadow: 0 4px 14px #000a; }
+
+  /* result overlay */
+  #overlay { position: fixed; inset: 0; background: #000a; display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .ocard { background: var(--panel); border: 3px solid var(--gold); border-radius: 12px; padding: 26px 34px; text-align: center; min-width: 280px; }
+  #help { position: fixed; inset: 0; background: #000a; display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .helpcard { max-width: 560px; max-height: 86vh; display: flex; flex-direction: column; }
+  .helpbody { text-align: left; overflow-y: auto; margin-bottom: 16px; padding-right: 6px; font-size: 13px; line-height: 1.5; }
+  .helpbody h4 { margin: 12px 0 2px; color: var(--gold); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+  .helpbody p { margin: 4px 0; color: var(--text); }
+  .ocard h2 { margin: 0 0 8px; font-size: 28px; }
+  .ocard p { margin: 4px 0 18px; color: var(--muted); }
+
+  /* main menu */
+  #menu { position: fixed; inset: 0; z-index: 15; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+  .menucard { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 420px; width: 100%; }
+  .menucard .logo { font-size: clamp(40px, 12vw, 72px); font-weight: 900; letter-spacing: 6px; color: var(--gold); text-shadow: 0 4px 0 #000, 0 0 24px #e8b84a55; }
+  .menucard .tagline { color: var(--muted); margin-bottom: 18px; letter-spacing: 1px; }
+  .menucard button.big { width: 100%; max-width: 280px; font-size: 20px; padding: 14px 18px; }
+  .menunote { min-height: 18px; font-size: 13px; color: var(--gold); }
+  .menufine { font-size: 12px; color: var(--muted); max-width: 320px; }
+  /* tutorial */
+  #tut { background: var(--panel2); border: 3px solid var(--gold); border-radius: 10px; padding: 12px 16px; margin: 10px 0 0; display: flex; flex-direction: column; gap: 4px; }
+  #tut .tuttag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  #tut .tuttitle { font-size: 17px; font-weight: 800; color: var(--gold); }
+  #tut .tuttext { font-size: 14px; line-height: 1.5; }
+  #tut button { align-self: flex-end; margin-top: 6px; }
+  #tut.nudge { animation: nudge .4s; }
+  @keyframes nudge { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  @keyframes tutpulse { 50% { box-shadow: 0 0 0 4px #e8b84acc, 0 0 18px #e8b84a; } }
+  .tut-hl { animation: tutpulse 1.1s ease-in-out infinite; border-color: var(--gold) !important; }
+  .card.tut-hl, .slot.tut-hl, .bslot.tut-hl, button.tut-hl { position: relative; }
+  .tut-off { opacity: .3; filter: grayscale(.7); }
+  .tut-off:not(.card) { pointer-events: none; }
+  .btnpulse { animation: tutpulse 1.1s ease-in-out infinite; border-color: var(--gold) !important; }
+
+  @media (max-width: 720px) { #info { max-width: none; } }
+  /* The info panel beside the army never changes the page height: it fills a slot as tall as the army and scrolls inside. */
+  #infoSlot { display: none; position: relative; flex: 1 1 250px; max-width: 340px; min-width: 250px; align-self: stretch; }
+  #infoSlot.on { display: block; }
+  #info.sidepanel { position: absolute; top: 22px; left: 0; right: 0; bottom: 0; max-width: none; min-height: 0; overflow-y: auto; }
+  #info.infofloat { position: fixed; z-index: 35; min-height: 0; max-width: none; overflow-y: auto; box-shadow: 0 6px 24px #000a; }
+  #info.infofloat.off { display: none; }
+  @media (max-width: 480px) { #top .hbtns { gap: 6px; } #top button { padding: 5px 10px; font-size: 13px; } #top .lbl { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <span class="stat">Round <b id="tRound">1</b></span>
+    <span class="stat">Gold <b id="tGold">10</b></span>
+    <span class="stat">Lives <span class="hearts" id="tLives"></span></span>
+    <span class="stat">Wins <b id="tWins">0</b>/<span id="tTarget">10</span></span>
+    <span class="stat">Races <span id="tPool"></span></span>
+    <span class="hbtns">
+      <button id="btnHelp" title="How to play" aria-label="How to play">❓<span class="lbl"> How to play</span></button>
+      <button id="btnSound" title="Sound" aria-label="Sound"><span class="ico">🔊</span><span class="lbl"> Sound on</span></button>
+      <button id="btnMenu" title="Main menu" aria-label="Main menu"><span class="ico">☰</span><span class="lbl"> Menu</span></button>
+      <button id="btnNew">New run</button>
+    </span>
+  </header>
+  <div id="msg"></div>
+  <section id="tut" class="hidden"><div class="tuttag"></div><div class="tuttitle"></div><div class="tuttext"></div><button id="tutNext" class="primary">Next</button></section>
+
+  <main id="arena">
+    <section class="side" id="playerSide">
+      <div class="title">Your army</div>
+      <div class="bar" id="playerBar"><div class="track"><div class="fill"></div></div><div class="shieldbar"></div><div class="label"></div><div class="floats"></div><div class="slowtag"></div></div>
+      <div id="raceline" class="hidden"></div>
+      <div id="foeline" class="hidden"></div>
+      <div class="grid" id="playerGrid"></div>
+      <div class="benchbox">
+        <div class="title">Bench (units here do not fight)</div>
+        <div class="bench" id="bench"></div>
+      </div>
+    </section>
+    <div id="vs" class="hidden">VS</div>
+    <div id="infoSlot"></div>
+    <section class="side hidden" id="enemySide">
+      <div class="title" id="enemyTitle">Enemy warband</div>
+      <div class="bar" id="enemyBar"><div class="track"><div class="fill"></div></div><div class="shieldbar"></div><div class="label"></div><div class="floats"></div><div class="slowtag"></div></div>
+      <div class="grid" id="enemyGrid"></div>
+    </section>
+  </main>
+
+  <section id="shopArea">
+    <div id="odds"></div>
+    <div id="shop"></div>
+    <div id="lower">
+      <div id="controls"></div>
+      <aside id="info"></aside>
+    </div>
+  </section>
+</div>
+<div id="menu" class="hidden">
+  <div class="menucard">
+    <div class="logo">WARBANDS</div>
+    <div class="tagline">A medieval auto battler</div>
+    <button id="menuPlay" class="primary big">Play</button>
+    <button id="menuTut" class="big">Tutorial</button>
+    <div class="menunote" id="menuNote"></div>
+    <div class="menufine">Win 10 fights before you lose 5 lives. Every run has its own set of 3 races.</div>
+  </div>
+</div>
+<div id="overlay" class="hidden"></div>
+<div id="help" class="hidden"></div>
+
+<script>
+/*
+ * Medieval Auto Battler: rules and combat engine.
+ * No DOM code in here, so the same file runs in the browser and in Node (for tests).
+ */
+(function (root) {
+  'use strict';
+
+  // ---------------------------------------------------------------- config
+  const COLS = 3, ROWS = 2, CELLS = COLS * ROWS;
+  const RACES = ['Human', 'Elf', 'Orc', 'Dwarf', 'Fae', 'Clockwork'];
+  // One line per race, shown in the start-of-run message. Add a line here when a race is added.
+  const RACE_INFO = {
+    Human: 'Variety and adaptability: gets stronger from different races on your board.',
+    Elf: 'Speed and numbers: Elves only help Elves. The more Elves on your board, the faster they all attack.',
+    Orc: 'Raw power: Orcs give attack to the units around them, whatever their race.',
+    Dwarf: 'Shields and stubbornness: Dwarves shield your whole team, then turn the shield into damage.',
+    Fae: 'Trickery: enemy units attack slower and later (at most 40% slower, and at most 2s of delay per fight).',
+    Clockwork: 'Wind-up: machines attack faster every second of the fight, and wind up the units around them, whatever their race (up to 3x speed).',
+  };
+  // Fae limits, so the enemy can never be locked down: a team can be slowed by at most SLOW_CAP,
+  // one unit by at most UNIT_SLOW_CAP (including hexes), and each unit delayed by at most DELAY_CAP seconds per fight.
+  const SLOW_CAP = 0.4, UNIT_SLOW_CAP = 0.6, DELAY_CAP = 2;
+  // Clockwork: the most extra speed wind-up can give one unit (+200%). All own speed bonuses together are capped at 3x anyway.
+  const WIND_CAP = 2.0;
+  // Numbers for the race identity units: what each race gives to every race (Orc attack, Dwarf shield, Fae slow,
+  // Clockwork wind-up) and the mono payoffs (one tier 3 "signpost" per race and the Dragons, marked mono: true).
+  // The unit texts below are built from these numbers, so text and effect always match.
+  // "Full board" = all 6 cells filled and every unit on the board is of that race.
+  // (The engine still supports 2-cell units, w: 2, but no unit uses that any more: the Siege Engines were replaced by
+  // 1-cell tier 4 Champions, so every race has Mage + Champion in tier 4.)
+  const T = {
+    // Human (variety): Knight shield and Priest heal = base + bonus per different race
+    knight: [0.11, 0.01], priest: [0.065, 0.015],
+    crossPer: 1, crossAtk: 4.5, gildedPer: [2, 3, 4], gildedSpeed: [1.0, 1.5, 2.0], gildedAtk: 7, // Crossbowman attack per different race and base attack; Gilded Drake: attack per different race and extra speed with 3 different races, per level
+    lion: [0.08, 0.12, 0.12], lionAdj: 0.15, lionAtk: 7, // Lionheart: own speed per different race (L1/L2/L3), L3 speed for adjacent non-Humans
+    // Elf (mono only)
+    song: [0.02, 0.03, 0.03], songFull: 0.02,            // Songweaver: Elf speed per Elf (L1/L2/L3), full Elf board extra
+    wyrm: [0.06, 0.08, 0.08], wyrmFull: 0.04, wyrmL3: 1, wyrmAtk: 7, // Verdant Wyrm: Elf speed per Elf, full extra, L3 damage per Elf
+    sentinel: [0.10, 0.10, 0.20], rangerL3: 0.20,         // Sentinel: speed for adjacent (L2+: diagonal too) Elves; Ranger L3 own speed
+    ranger: 0.2, rangerAtk: 5, spell: [2.5, 5, 5], spellAtk: 5, // Ranger attack per Elf; Spellweaver bolt damage per Elf
+    moon: 0.06, moonPer: 0.005,                        // Moon Priestess heal, + per Elf
+    dancer: [3, 4, 4], dancerL3: 0.02, dancerMax: 0.20, dancerAtk: 7.5, // Bladedancer: Elf speed counts x; L3 speed per hit to other Elves, max
+    // Orc (gives attack: "hit X% harder")
+    grunt: [0.15, 0.20, 0.22], gruntAtk: 4,          // Grunt: adjacent units hit harder (L3 also diagonal), own attack
+    bruteAtk: 3,
+    blood: 1.25, bloodFull: 0.5, bloodAtk: 4,               // Bloodrager: attack per Orc, full Orc board extra, base attack
+    drum: 0.10, drumEvery: 2,                          // War Drummer: hit harder per beat, seconds per beat
+    shaman: [0.35, 0.50, 0.50],                        // Shaman: adjacent units hit harder
+    skull: [0.80, 1.20, 1.20], skullAdj: 0.25, skullAtk: 10, // Skullsplitter: hits harder while the enemy bar is below half; L3 adjacent
+    ash: [0.05, 0.08, 0.08], ashFull: [0.05, 0.08, 0.08], ashRamp: 0.5, ashAtk: 8, // Ashmaw: Orcs hit harder per Orc, full extra, L3 own ramp, base attack
+    // Dwarf (gives shield)
+    sb: [0.07, 0.11, 0.11], rune: 0.08,                // Shieldbearer shield; Runepriest shield per rune
+    slayer: 1.5, slayerFull: 2, slayerAtk: 3,            // Slayer: attack per Dwarf, full extra, base attack
+    magma: [0.03, 0.035, 0.035], magmaFull: 0.02, magmaAtk: 6, // Magma Drake: shield per Dwarf, full extra, base attack
+    iron: [0.035, 0.025, 0.025], ironL3: 0.06, ironAtk: 6, // Ironbreaker: +1 attack per this share of the bar blocked; L3 battle-start shield
+    // Fae (slows the enemy)
+    pixie: [0.03, 0.04, 0.04], pixiePer: 0.01, thorn: [0.5, 0.8, 0.8], dryad: 0.07, // Pixie slow (+1% per Fae); Thornguard delay (s); Dryad heal
+    stag: 0.75, stagFull: 0.5, stagAtk: 3, stagSteal: 1.5, // Spirit Stag: attack per Fae, full extra, base, speed per enemy slow
+    storm: 0.75, stormFull: 1, stormAtk: 6,           // Storm Wyrm: attack per Fae, full extra, base attack
+    trickAtk: 7,                                       // Trickster base attack
+    change: [1.3, 1.6, 1.6], changeDelay: 1, changeAtk: 5, // Changeling: share of the hardest enemy hit (counted at level 1) it copies; L3 delay (s)
+    // Clockwork (gives wind-up)
+    cog: [0.08, 0.11, 0.11], cogPer: 0.025, auto: [0.04, 0.06, 0.06],  // Cogling wind-up; Automaton extra wind-up per adjacent unit
+    rep: 0.05, repBase: 0.06, repFull: 0.08, repAtk: 6.5,           // Repeater: wind-up per Clockwork, base, full extra
+    bell: [0.10, 0.12, 0.12], magus: 0.12,             // Bellringer and Brass Magus wind-up given to other units
+    titan: [0.12, 0.16, 0.16], titanDmg: 1, titanL3: 0.02, titanAtk: 5.5, // Steam Titan: wind-up, damage per wind-up, L3 wind-up per hit to adjacent
+    brass: [0.02, 0.025, 0.025], brassFull: [0.02, 0.025, 0.025], brassAtk: 11, // Brass Dragon: wind-up per Clockwork for other Clockwork, full extra, base attack
+  };
+  if (root.GAME_TUNE) Object.assign(T, root.GAME_TUNE);   // test hook: balance scripts can try other numbers (unused in the game)
+  const pc = x => Math.round(x * 1000) / 10 + '%';
+  const CFG = {
+    startGold: 10,
+    startLives: 5,
+    winTarget: 10,
+    shopSize: 5,
+    poolSize: 3,    // how many races are in play each run (for you, and for each enemy team)
+    rerollCost: 1,
+    benchSize: 6,
+    maxTime: 40,    // seconds of fight time before a timeout
+    tick: 0.1,
+  };
+  // Index = level. Damage grows fast with level because board space is the real limit.
+  const MULT = [0, 1, 2, 3.5];     // attack multiplier
+  // Shields, heals and speed auras no longer use a flat multiplier: each unit's level changes its ability
+  // (see the lv text in DEFS and the L(u, a, b, c) picks in the combat code). Kept for reference.
+  const SOFT = [0, 1, 1.5, 2.25];
+  const HASTE = [0, 1, 1.25, 1.6];
+  // Knight: how many times (and how strong) the shield comes back after breaking, by level.
+  const KNIGHT = [[], [], [0.5], [1, 1]];
+
+  // Chance in percent that a shop slot (and an enemy unit) is tier 1, 2, 3, 4 or 5, by round.
+  // Rounds past the last row use the last row. Every row adds up to 100.
+  const TIER_ODDS = [
+    null,
+    [90, 10, 0, 0, 0],   // round 1
+    [75, 23, 2, 0, 0],
+    [60, 32, 8, 0, 0],
+    [48, 36, 14, 2, 0],
+    [35, 35, 24, 6, 0],
+    [26, 32, 28, 12, 2],
+    [18, 28, 32, 18, 4],
+    [14, 25, 32, 24, 5],
+    [10, 22, 32, 28, 8],
+    [8, 19, 31, 31, 11],
+    [6, 16, 30, 33, 15],
+    [5, 14, 28, 34, 19],  // round 12 and later
+  ];
+  const oddsFor = round => TIER_ODDS[Math.min(round, TIER_ODDS.length - 1)];
+
+  // Health bar (same for you and the enemy) and the highest tier that can show up.
+  const maxHp = round => 50 + 20 * (round - 1);
+  // Gold you get at the start of each round. It grows because higher tiers cost more.
+  const goldFor = round => Math.min(20, 4 + round);
+  const maxTier = round => { let t = 1; oddsFor(round).forEach((p, i) => { if (p > 0) t = i + 1; }); return t; };
+  const MAX_LEVEL = 3;
+  const MILITIA_CAP = 5;   // most attack a Militiaman can grow
+  // Selling follows the Teamfight Tactics rule: a level 1 unit returns its full price. A level 2 or 3 unit returns what the 3 or 9
+  // copies cost, minus 1 gold (tier 1 units lose nothing).
+  const sellValue = u => {
+    const tier = BY_ID[u.id].tier, copies = [0, 1, 3, 9][u.level];
+    return tier * copies - (u.level > 1 && tier > 1 ? 1 : 0);
+  };
+
+  // ------------------------------------------------------------ unit data
+  function def(id, name, race, cls, tier, o) {
+    // A unit costs as many gold as its tier.
+    return Object.assign({ id, name, race, cls, tier, cost: tier, w: 1, kind: 'attack', atk: 0, interval: 2 }, o);
+  }
+  // lv: what the unit does at level 1, 2 and 3 (shown in the info box). Level 2 and 3 text lists what changes.
+  const DEFS = [
+    // Human: variety
+    def('militiaman', 'Militiaman', 'Human', 'Peasant', 1, { atk: 2.5, interval: 2, lv: [
+      'Grows: +1 attack at the end of every round it stays on your board (max +5).',
+      'Also grows while on your bench.',
+      'Counts as 1 extra different race on your board (max 3).'] }),
+    def('knight', 'Knight', 'Human', 'Warrior', 2, { atk: 3, interval: 2, lv: [
+      `Battle start: your team gets a shield of ${pc(T.knight[0])} of the health bar, +${pc(T.knight[1])} per different race on your board.`,
+      'When the shield breaks, it comes back once at half strength.',
+      'When the shield breaks, it comes back twice at full strength.'] }),
+    def('crossbowman', 'Crossbowman', 'Human', 'Archer', 3, { atk: T.crossAtk, interval: 2, lv: [
+      `+${T.crossPer} attack per different race on your board.`,
+      'No other change.',
+      'Every 4th shot hits twice.'] }),
+    def('priest', 'Priest', 'Human', 'Cleric', 3, { kind: 'heal', interval: 2.5, lvInterval: [0, 2.5, 2, 2], lv: [
+      `Every 2.5s: heals ${pc(T.priest[0])} of the health bar, +${pc(T.priest[1])} per different race on your board. Healing beyond full health becomes shield.`,
+      'Every 2s. Heals ×1.5 the Lv 1 amount.',
+      'Heals ×2 the Lv 1 amount. First heal at battle start.'] }),
+    def('wizard', 'Wizard', 'Human', 'Mage', 4, { atk: 7, interval: 1.5, lv: [
+      'Every 2nd hit: adjacent allies get +2 attack for the rest of the fight.',
+      'Every hit, not every 2nd.',
+      'Allies get +3 attack, and diagonal allies are reached too.'] }),
+    def('lionheart', 'Lionheart', 'Human', 'Champion', 4, { atk: T.lionAtk, interval: 1.4, lv: [
+      `Attacks fast. +${pc(T.lion[0])} attack speed per different race on your board.`,
+      `+${pc(T.lion[0])} → +${pc(T.lion[1])} per race.`,
+      `Adjacent units of another race get +${pc(T.lionAdj)} attack speed.`] }),
+    def('gilded', 'Gilded Drake', 'Human', 'Dragon', 5, { atk: T.gildedAtk, interval: 2, lv: [
+      `+${T.gildedPer[0]} attack per different race on your board. With 3 different races it attacks ${1 + T.gildedSpeed[0]}× as fast.`,
+      `+${T.gildedPer[0]} → +${T.gildedPer[1]} attack per race. With 3 different races: ${1 + T.gildedSpeed[0]}× → ${1 + T.gildedSpeed[1]}× as fast.`,
+      `+${T.gildedPer[1]} → +${T.gildedPer[2]} attack per race. With 3 different races: ${1 + T.gildedSpeed[1]}× → ${1 + T.gildedSpeed[2]}× as fast.`] }),
+    // Elf: speed and numbers
+    def('sentinel', 'Sentinel', 'Elf', 'Warrior', 1, { atk: 4, interval: 2, lv: [
+      `Adjacent Elves get +${pc(T.sentinel[0])} attack speed.`,
+      'Also reaches diagonal units.',
+      `Elves get +${pc(T.sentinel[2])} attack speed.`] }),
+    def('ranger', 'Ranger', 'Elf', 'Archer', 2, { atk: T.rangerAtk, interval: 1.8, lv: [
+      `+${T.ranger} attack per Elf on your board (itself included).`,
+      'No other change.',
+      `+${pc(T.rangerL3)} attack speed.`] }),
+    def('moonpriestess', 'Moon Priestess', 'Elf', 'Cleric', 3, { kind: 'heal', interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
+      `Every 3s: heals ${pc(T.moon)} of the health bar, +${pc(T.moonPer)} per Elf on your board.`,
+      'Every 2.5s. Heals ×1.25 the Lv 1 amount.',
+      'Every 2s. Heals ×1.5 the Lv 1 amount. Each heal gives your Elves +5% attack speed for the fight.'] }),
+    def('songweaver', 'Songweaver', 'Elf', 'Bard', 3, { atk: 3, interval: 2, mono: true, lv: [
+      `Your Elves get +${pc(T.song[0])} attack speed per Elf on your board. Full Elf board: +${pc(T.songFull)} extra.`,
+      `Elf attack speed +${pc(T.song[0])} → +${pc(T.song[1])} per Elf.`,
+      'Your Elves\' first hit comes after half the usual wait.'] }),
+    def('spellweaver', 'Spellweaver', 'Elf', 'Mage', 4, { atk: T.spellAtk, interval: 2, lv: [
+      `Every 2nd hit deals +${T.spell[0]} damage per Elf on your board.`,
+      `+${T.spell[0]} → +${T.spell[1]} damage per Elf.`,
+      'Every hit, not every 2nd.'] }),
+    def('bladedancer', 'Bladedancer', 'Elf', 'Champion', 4, { atk: T.dancerAtk, interval: 1.6, lv: [
+      `Attack speed your Elves give it counts ${T.dancer[0]}×.`,
+      `${T.dancer[0]}× → ${T.dancer[1]}×.`,
+      `Each hit gives your other Elves +${pc(T.dancerL3)} attack speed for the fight (max +${pc(T.dancerMax)}).`] }),
+    def('wyrm', 'Verdant Wyrm', 'Elf', 'Dragon', 5, { atk: T.wyrmAtk, interval: 2, mono: true, lv: [
+      `Your Elves get +${pc(T.wyrm[0])} attack speed per Elf on your board. Full Elf board: +${pc(T.wyrmFull)} extra.`,
+      `Elf attack speed +${pc(T.wyrm[0])} → +${pc(T.wyrm[1])} per Elf.`,
+      `Its own hits deal +${T.wyrmL3} attack per Elf.`] }),
+    // Orc: raw power and adjacency
+    def('grunt', 'Grunt', 'Orc', 'Peasant', 1, { atk: T.gruntAtk, interval: 2, lv: [
+      `Adjacent units get +${pc(T.grunt[0])} attack.`,
+      `+${pc(T.grunt[0])} → +${pc(T.grunt[1])} attack.`,
+      `+${pc(T.grunt[1])} → +${pc(T.grunt[2])} attack. Also reaches diagonal units.`] }),
+    def('brute', 'Brute', 'Orc', 'Warrior', 2, { atk: T.bruteAtk, interval: 2, lv: [
+      'Enrage: +1 attack every 2s of the fight.',
+      'Every 2s → every 1.5s.',
+      'Adjacent units enrage too (+1 attack every 2s).'] }),
+    def('bloodrager', 'Bloodrager', 'Orc', 'Berserker', 3, { atk: T.bloodAtk, interval: 1.8, mono: true, lv: [
+      `+${T.blood} attack per Orc on your board. Full Orc board: +${T.bloodFull} extra.`,
+      'No other change.',
+      '+30% attack speed once your health bar is below half.'] }),
+    def('drummer', 'War Drummer', 'Orc', 'Bard', 3, { atk: 2, interval: 2, lv: [
+      `Every ${T.drumEvery}s: adjacent units get +${pc(T.drum)} attack for the rest of the fight.`,
+      'Also reaches diagonal units.',
+      'The first beat comes at battle start.'] }),
+    def('shaman', 'Shaman', 'Orc', 'Mage', 4, { atk: 5, interval: 2, lv: [
+      `Adjacent units get +${pc(T.shaman[0])} attack.`,
+      `+${pc(T.shaman[0])} → +${pc(T.shaman[1])} attack.`,
+      'Also reaches diagonal units.'] }),
+    def('skullsplitter', 'Skullsplitter', 'Orc', 'Champion', 4, { atk: T.skullAtk, interval: 1.8, lv: [
+      `+${pc(T.skull[0])} attack once the enemy health bar is below half.`,
+      `+${pc(T.skull[0])} → +${pc(T.skull[1])} attack.`,
+      `Adjacent units also get +${pc(T.skullAdj)} attack once the enemy is below half.`] }),
+    def('ashmaw', 'Ashmaw', 'Orc', 'Dragon', 5, { atk: T.ashAtk, interval: 2, mono: true, lv: [
+      `Your Orcs get +${pc(T.ash[0])} attack per Orc on your board. Full Orc board: +${pc(T.ashFull[0])} extra.`,
+      `Orc attack +${pc(T.ash[0])} → +${pc(T.ash[1])} per Orc (full board extra: +${pc(T.ashFull[1])}).`,
+      `Ashmaw gains +${T.ashRamp} attack every second of the fight.`] }),
+    // Dwarf: shields, and shields turned into damage
+    def('shieldbearer', 'Shieldbearer', 'Dwarf', 'Warrior', 1, { atk: 3.5, interval: 2.5, lv: [
+      `Battle start: your team gets a shield of ${pc(T.sb[0])} of the health bar. Shield bash: +1 attack per 5% of the bar your shield holds.`,
+      `Shield ${pc(T.sb[0])} → ${pc(T.sb[1])} of the bar.`,
+      '+1% shield for each other Dwarf on your board.'] }),
+    def('thunderer', 'Thunderer', 'Dwarf', 'Archer', 2, { atk: 5, interval: 2.5, lv: [
+      '+1 attack per 6% of the health bar in your battle-start shield.',
+      'No other change.',
+      'The first shot comes at battle start.'] }),
+    def('runepriest', 'Runepriest', 'Dwarf', 'Cleric', 3, { kind: 'heal', ward: true, interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
+      `Every 3s: adds a shield of ${pc(T.rune)} of the health bar.`,
+      'Every 2.5s. Shield ×1.25 the Lv 1 amount.',
+      'Every 2s. Shield ×1.5 the Lv 1 amount. Each shield gives your Dwarves +1 attack for the fight.'] }),
+    def('slayer', 'Slayer', 'Dwarf', 'Berserker', 3, { atk: T.slayerAtk, interval: 2, mono: true, lv: [
+      `+${T.slayer} attack per Dwarf on your board. Full Dwarf board: +${T.slayerFull} extra.`,
+      'No other change.',
+      'When your shield breaks, it hits at once.'] }),
+    def('runesmith', 'Runesmith', 'Dwarf', 'Mage', 4, { atk: 5, interval: 2, lv: [
+      'Every shield your team gets is 40% bigger.',
+      '40% → 80% bigger.',
+      'Its hits deal extra damage equal to 10% of your shield.'] }),
+    def('ironbreaker', 'Ironbreaker', 'Dwarf', 'Champion', 4, { atk: T.ironAtk, interval: 1.8, lv: [
+      `+1 attack per ${pc(T.iron[0])} of the health bar your shield has blocked this fight.`,
+      `Per ${pc(T.iron[0])} → per ${pc(T.iron[1])}.`,
+      `Battle start: your team gets a shield of ${pc(T.ironL3)} of the health bar.`] }),
+    def('magmadrake', 'Magma Drake', 'Dwarf', 'Dragon', 5, { atk: T.magmaAtk, interval: 2.5, mono: true, lv: [
+      `Battle start: your team gets a shield of ${pc(T.magma[0])} of the health bar per Dwarf on your board. Full Dwarf board: +${pc(T.magmaFull)} extra. Each hit burns 20% of your shield and deals double that as extra damage.`,
+      `Shield ${pc(T.magma[0])} → ${pc(T.magma[1])} per Dwarf.`,
+      'Each hit first adds a shield of 4% of the health bar.'] }),
+    // Fae: slow and delay the enemy
+    def('pixie', 'Pixie', 'Fae', 'Bard', 1, { atk: 2.5, interval: 2, lv: [
+      `Enemy attack speed −${pc(T.pixie[0])}, and −${pc(T.pixiePer)} more per Fae on your board.`,
+      `Enemy attack speed −${pc(T.pixie[0])} → −${pc(T.pixie[1])}.`,
+      'The enemy\'s first hits come 0.5s later.'] }),
+    def('thornguard', 'Thornguard', 'Fae', 'Warrior', 2, { atk: 5, interval: 2, lv: [
+      `Battle start: the enemy\'s first hits come ${T.thorn[0]}s later.`,
+      `${T.thorn[0]}s → ${T.thorn[1]}s later.`,
+      'Enemy attack speed −5%.'] }),
+    def('dryad', 'Dryad', 'Fae', 'Cleric', 3, { kind: 'heal', interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
+      `Every 3s: heals ${pc(T.dryad)} of the health bar.`,
+      'Every 2.5s. Heals ×1.25 the Lv 1 amount.',
+      'Every 2s. Heals ×1.5 the Lv 1 amount. Each heal gives enemy −3% attack speed for the fight.'] }),
+    def('spiritstag', 'Spirit Stag', 'Fae', 'Berserker', 3, { atk: T.stagAtk, interval: 2, mono: true, lv: [
+      `+${T.stag} attack per Fae on your board. Full Fae board: +${T.stagFull} extra. Stolen speed: gains ${T.stagSteal}× the enemy\'s slow as attack speed.`,
+      'No other change.',
+      'Your other Fae get half of the stolen speed.'] }),
+    def('trickster', 'Trickster', 'Fae', 'Mage', 4, { atk: T.trickAtk, interval: 2, lv: [
+      'Battle start: hexes the strongest enemy unit (−30% attack speed).',
+      'Hex −30% → −50%.',
+      'Also hexes the second strongest enemy unit (−50%).'] }),
+    def('changeling', 'Changeling', 'Fae', 'Champion', 4, { atk: T.changeAtk, interval: 2, lv: [
+      `Battle start: copies the attack of the hardest-hitting enemy unit (its own attack at level 1, at least ${T.changeAtk}).`,
+      `Copies ${T.change[0]}× → ${T.change[1]}× that attack.`,
+      `The copied enemy unit's first hit comes ${T.changeDelay}s later.`] }),
+    def('stormwyrm', 'Storm Wyrm', 'Fae', 'Dragon', 5, { atk: T.stormAtk, interval: 2, mono: true, lv: [
+      `+${T.storm} attack per Fae on your board. Full Fae board: +${T.stormFull} extra. Each hit gives enemy −5% attack speed for the rest of the fight.`,
+      'Enemy attack speed per hit −5% → −7%.',
+      'Every 3rd hit delays all enemy hits by 0.5s.'] }),
+    // Clockwork: wind-up (faster every second of the fight) and machine synergy
+    def('cogling', 'Cogling', 'Clockwork', 'Peasant', 1, { atk: 3.5, interval: 2.5, lv: [
+      `Wind-up: +${pc(T.cog[0])} attack speed per second of the fight, +${pc(T.cogPer)} per Clockwork on your board.`,
+      `Wind-up ${pc(T.cog[0])} → ${pc(T.cog[1])} per second.`,
+      'Adjacent units get +5% wind-up per second.'] }),
+    def('automaton', 'Automaton', 'Clockwork', 'Warrior', 2, { atk: 5, interval: 2.6, lv: [
+      `Wind-up: +12% per second, +${pc(T.auto[0])} per adjacent unit.`,
+      `Wind-up per adjacent unit +${pc(T.auto[0])} → +${pc(T.auto[1])}.`,
+      'Starts the fight already wound up for 2 seconds.'] }),
+    def('repeater', 'Repeater', 'Clockwork', 'Archer', 3, { atk: T.repAtk, interval: 2.2, mono: true, lv: [
+      `Wind-up: +${pc(T.repBase)} per second, +${pc(T.rep)} per Clockwork on your board. Full Clockwork board: +${pc(T.repFull)} extra.`,
+      'No other change.',
+      'Other units in its row get +3% wind-up per second.'] }),
+    def('bellringer', 'Bellringer', 'Clockwork', 'Bard', 3, { atk: 3, interval: 2.5, lv: [
+      `Units in its row (any race) get +${pc(T.bell[0])} wind-up per second.`,
+      `+${pc(T.bell[0])} → +${pc(T.bell[1])}. Also reaches the units directly above or below it.`,
+      'Reaches all your units. They start the fight wound up for 1 second.'] }),
+    def('brassmagus', 'Brass Magus', 'Clockwork', 'Mage', 4, { atk: 8, interval: 2.4, lv: [
+      `Adjacent units get +${pc(T.magus)} wind-up per second.`,
+      'Also reaches diagonal units.',
+      'Every 2nd hit deals +2 damage per Clockwork on your board.'] }),
+    def('steamtitan', 'Steam Titan', 'Clockwork', 'Champion', 4, { atk: T.titanAtk, interval: 2.2, lv: [
+      `Wind-up: +${pc(T.titan[0])} per second. Its wind-up also adds attack: +${Math.round(T.titanDmg * 100) / 100}% attack per 1% wind-up.`,
+      `Wind-up ${pc(T.titan[0])} → ${pc(T.titan[1])} per second.`,
+      `Each hit gives adjacent units +${pc(T.titanL3)} wind-up per second for the fight.`] }),
+    def('brassdragon', 'Brass Dragon', 'Clockwork', 'Dragon', 5, { atk: T.brassAtk, interval: 2.4, mono: true, lv: [
+      `Wind-up: +15% per second. Your other Clockwork get +${pc(T.brass[0])} wind-up per second for each Clockwork on your board. Full Clockwork board: +${pc(T.brassFull[0])} extra.`,
+      `Wind-up +${pc(T.brass[0])} → +${pc(T.brass[1])} per Clockwork (full board extra: +${pc(T.brassFull[1])}).`,
+      'Your Clockwork start the fight wound up for 1 second.'] }),
+  ];
+  DEFS.forEach(d => { d.text = d.lv[0]; });
+  // Info text for a unit at a given level: the level 1 text plus every change up to that level.
+  function unitText(id, level) {
+    const d = BY_ID[id];
+    const out = [d.lv[0]];
+    for (let l = 2; l <= (level || 1); l++) out.push('Level ' + l + ': ' + d.lv[l - 1]);
+    return out.join(' ');
+  }
+  const BY_ID = {};
+  DEFS.forEach(d => { BY_ID[d.id] = d; });
+
+  // ------------------------------------------------------------- helpers
+  const ok = msg => ({ ok: true, msg: msg || '' });
+  const fail = msg => ({ ok: false, msg });
+  const cellsOf = (left, w) => (w === 2 ? [left, left + 1] : [left]);
+  function neighbors(c) {
+    const r = Math.floor(c / COLS), col = c % COLS, out = [];
+    if (col > 0) out.push(c - 1);
+    if (col < COLS - 1) out.push(c + 1);
+    if (r > 0) out.push(c - COLS);
+    if (r < ROWS - 1) out.push(c + COLS);
+    return out;
+  }
+  function diagonals(c) {
+    const r = Math.floor(c / COLS), col = c % COLS, out = [];
+    [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([dr, dc]) => {
+      const rr = r + dr, cc = col + dc;
+      if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) out.push(rr * COLS + cc);
+    });
+    return out;
+  }
+  // Pick a number by level: L(u, a, b, c) is a at level 1, b at level 2, c at level 3.
+  const L = (u, a, b, c) => [0, a, b, c][u.level];
+  // Roll a tier from this round's odds table (the shop table, or another table given as `table`).
+  function rollTier(round, rng, table) {
+    const odds = table ? table[Math.min(round, table.length - 1)] : oddsFor(round);
+    let x = rng() * 100;
+    for (let i = 0; i < odds.length; i++) { x -= odds[i]; if (x < 0) return i + 1; }
+    return 1;
+  }
+  const BY_TIER = [null, [], [], [], [], []];
+  DEFS.forEach(d => { BY_TIER[d.tier].push(d); });
+  // A random unit of the given tier. With a race given, that race is preferred when it has one in the tier.
+  // Pick n different races at random (all of them if there are not more than n), in the usual order.
+  function pickRaces(rng, n) {
+    const pool = RACES.slice();
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const chosen = pool.slice(0, Math.min(n, pool.length));
+    return RACES.filter(r => chosen.includes(r));
+  }
+  function pickUnit(tier, rng, race, pool) {
+    const all = pool ? BY_TIER[tier].filter(d => pool.includes(d.race)) : BY_TIER[tier];
+    const same = race ? all.filter(d => d.race === race) : [];
+    const src = same.length ? same : all;
+    return src[Math.floor(rng() * src.length)];
+  }
+
+  // ---------------------------------------------------------- combat setup
+  // Recompute a unit's attack timer after its speed changed. Own speed bonuses (auras, wind-up, stolen speed)
+  // are capped at 3x; then the slow the enemy put on this team (Fae) and on this unit (hex) is applied.
+  function setSpeed(u) {
+    // elfSpeed: the part of speedBonus that came from Elves; a Bladedancer counts it extra (elfMult).
+    const sp = Math.min(3, 1 + u.speedBonus + u.elfSpeed * u.elfMult + u.windBonus + u.stolen);
+    const slow = Math.min(UNIT_SLOW_CAP, Math.min(SLOW_CAP, u.team.slowed) + u.hex);
+    u.speed = sp * (1 - slow);
+    u.interval = u.baseInterval / u.speed;
+  }
+  // Clockwork wind-up bonus at fight time t.
+  const windAt = (u, t) => (u.wind > 0 ? Math.min(WIND_CAP, u.wind * (t + u.windHead)) : 0);
+  // Push back the next attack of every unit in a team (Fae), at most DELAY_CAP seconds per unit per fight.
+  function delayTeam(team, sec) {
+    team.units.forEach(u => {
+      const add = Math.max(0, Math.min(sec, DELAY_CAP - u.delayed));
+      u.delayed += add; u.next += add;
+    });
+  }
+  // Change a unit's speed mid-fight so it applies at once: the part of the current wait that is left
+  // gets shorter or longer too (used by wind-up and by Fae slows).
+  function respeed(u, t) {
+    const left = Math.max(0, u.next - t) / u.interval;
+    setSpeed(u);
+    u.next = t + left * u.interval;
+  }
+  // Slow a whole team a bit more for the rest of the fight (Fae). Capped by SLOW_CAP.
+  function slowTeam(team, amt, t) {
+    team.slowed = Math.min(SLOW_CAP, team.slowed + amt);
+    team.units.forEach(u => respeed(u, t));
+  }
+
+  // slots: [{uid, id, cell, level, grow}]
+  function buildTeam(slots, maxHpValue) {
+    const units = slots.map(s => {
+      const d = BY_ID[s.id];
+      const level = s.level || 1;
+      const baseInterval = d.lvInterval ? d.lvInterval[level] : d.interval;
+      return {
+        uid: s.uid, id: d.id, def: d, race: d.race, cell: s.cell, cells: cellsOf(s.cell, d.w),
+        row: Math.floor(s.cell / COLS), level, mult: MULT[level], soft: SOFT[level], haste: HASTE[level],
+        grow: s.grow || 0, buffAtk: 0, atkPct: 0, speedBonus: 0, attacks: 0, adj: [], near: [],
+        speed: 1, baseInterval, interval: baseInterval, next: 0, enrage: 0, fast: false,
+        // new races: wind-up rate per second and head start (Clockwork), slow/hex/delay received and stolen speed (Fae)
+        wind: 0, windHead: 0, windBonus: 0, stolen: 0, hex: 0, delayed: 0, first: 1, team: null,
+        // tier 4 big hitters: Elf speed (Bladedancer), bonus vs a low enemy bar (Skullsplitter), copied hit (Changeling)
+        elfSpeed: 0, elfMult: 0, given: 0, execPct: 0, copyAtk: 0,
+      };
+    });
+    const owner = {};
+    units.forEach(u => u.cells.forEach(c => { owner[c] = u; }));
+    units.forEach(u => {
+      // adj: units next to it (up/down/left/right). near: adjacent plus diagonal units.
+      const seen = new Set(), seenNear = new Set();
+      u.cells.forEach(c => {
+        neighbors(c).forEach(n => {
+          const o = owner[n];
+          if (o && o !== u && !seen.has(o)) { seen.add(o); u.adj.push(o); }
+        });
+        neighbors(c).concat(diagonals(c)).forEach(n => {
+          const o = owner[n];
+          if (o && o !== u && !seenNear.has(o)) { seenNear.add(o); u.near.push(o); }
+        });
+      });
+    });
+    const count = {};
+    RACES.forEach(r => { count[r] = 0; });
+    units.forEach(u => { count[u.race]++; });
+    let diff = RACES.filter(r => count[r] > 0).length;
+    // Full board of one race: all cells filled and every unit of that race (mono payoffs check this).
+    const filled = units.reduce((n, u) => n + u.cells.length, 0);
+    const full = r => filled === CELLS && units.length > 0 && count[r] === units.length;
+    // A level 3 Militiaman counts as one extra different race (at most 3).
+    if (units.some(u => u.id === 'militiaman' && u.level === 3)) diff = Math.min(3, diff + 1);
+    const team = {
+      units, count, diff, full, shield: 0, reshield: [], overheal: false,
+      shieldMult: 1, absorbed: 0,          // Dwarf: Runesmith shield bonus, shield blocked so far (Slayer)
+      slowed: 0,                           // Fae: slow the enemy has put on this team
+      foeSlow: 0, foeDelay: 0, hexes: [],  // Fae: what this team does to the enemy at battle start
+      stagShare: 0,                        // Fae: level 3 Spirit Stag shares stolen speed
+    };
+    units.forEach(u => { u.team = team; });
+    // Runesmith first, because it makes every other shield bigger.
+    units.forEach(u => { if (u.id === 'runesmith') team.shieldMult += L(u, 0.4, 0.8, 0.8); });
+    const addShield = v => { team.shield += v * team.shieldMult; };
+    const isCW = a => a.race === 'Clockwork';
+    // Speed from an Elf to an Elf: also counted in elfSpeed, so a Bladedancer can count it extra.
+    const elfHaste = (a, v) => { a.speedBonus += v; a.elfSpeed += v; };
+
+    // Passive effects that are fixed when the fight starts.
+    units.forEach(u => {
+      switch (u.id) {
+        case 'knight': {
+          const sh = maxHpValue * (T.knight[0] + T.knight[1] * diff) * team.shieldMult;
+          team.shield += sh;
+          // Each entry is one return of the shield after it breaks (all Knights add up).
+          KNIGHT[u.level].forEach((f, i) => { team.reshield[i] = (team.reshield[i] || 0) + sh * f; });
+          break;
+        }
+        case 'priest':
+          team.overheal = true;
+          break;
+        case 'sentinel':
+          (u.level === 1 ? u.adj : u.near).forEach(a => { if (a.race === 'Elf') elfHaste(a, L(u, ...T.sentinel)); });
+          break;
+        case 'ranger':
+          if (u.level === 3) u.speedBonus += T.rangerL3;
+          break;
+        case 'songweaver': {
+          const sp = L(u, ...T.song) * count.Elf + (full('Elf') ? T.songFull : 0);
+          units.forEach(a => { if (a.race === 'Elf') { elfHaste(a, sp); if (u.level === 3) a.first = Math.min(a.first, 0.5); } });
+          break;
+        }
+        case 'bladedancer':
+          u.elfMult += L(u, ...T.dancer) - 1;
+          break;
+        case 'wyrm': {
+          const sp = L(u, ...T.wyrm) * count.Elf + (full('Elf') ? T.wyrmFull : 0);
+          units.forEach(a => { if (a.race === 'Elf') elfHaste(a, sp); });
+          break;
+        }
+        case 'lionheart':
+          u.speedBonus += L(u, ...T.lion) * diff;
+          if (u.level === 3) u.adj.forEach(a => { if (a.race !== 'Human') a.speedBonus += T.lionAdj; });
+          break;
+        case 'skullsplitter':
+          u.execPct += L(u, ...T.skull);
+          if (u.level === 3) u.adj.forEach(a => { a.execPct += T.skullAdj; });
+          break;
+        case 'ironbreaker':
+          if (u.level === 3) addShield(maxHpValue * T.ironL3);
+          break;
+        case 'grunt':
+          (u.level === 3 ? u.near : u.adj).forEach(a => { a.atkPct += L(u, ...T.grunt); });
+          break;
+        case 'brute':
+          if (u.level === 3) u.adj.forEach(a => { a.enrage += 1; });
+          break;
+        case 'drummer':
+          u.beat = u.level === 3 ? 0 : T.drumEvery;   // time of the next drumbeat
+          break;
+        case 'shaman':
+          (u.level === 3 ? u.near : u.adj).forEach(a => { a.atkPct += L(u, ...T.shaman); });
+          break;
+        case 'ashmaw': {
+          const per = L(u, ...T.ash) * count.Orc + (full('Orc') ? L(u, ...T.ashFull) : 0);
+          units.forEach(a => { if (a.race === 'Orc') a.atkPct += per; });
+          break;
+        }
+        case 'gilded':
+          if (diff === 3) u.speedBonus += L(u, ...T.gildedSpeed);
+          break;
+        // --- Dwarf
+        case 'shieldbearer':
+          addShield(maxHpValue * (L(u, ...T.sb) + (u.level === 3 ? 0.01 * (count.Dwarf - 1) : 0)));
+          break;
+        case 'thunderer':
+          if (u.level === 3) u.first = 0;
+          break;
+        case 'magmadrake':
+          addShield(maxHpValue * (L(u, ...T.magma) * count.Dwarf + (full('Dwarf') ? T.magmaFull : 0)));
+          break;
+        // --- Fae
+        case 'pixie':
+          team.foeSlow += L(u, ...T.pixie) + T.pixiePer * count.Fae;
+          if (u.level === 3) team.foeDelay += 0.5;
+          break;
+        case 'thornguard':
+          team.foeDelay += L(u, ...T.thorn);
+          if (u.level === 3) team.foeSlow += 0.05;
+          break;
+        case 'trickster':
+          team.hexes.push(L(u, 0.3, 0.5, 0.5));
+          if (u.level === 3) team.hexes.push(0.5);
+          break;
+        case 'spiritstag':
+          if (u.level === 3) team.stagShare += 0.5;
+          break;
+        // --- Clockwork: base wind-up rates
+        case 'cogling':
+          u.wind += L(u, ...T.cog) + T.cogPer * count.Clockwork;
+          if (u.level === 3) u.adj.forEach(a => { a.wind += 0.05; });
+          break;
+        case 'automaton':
+          u.wind += 0.12 + L(u, ...T.auto) * u.adj.length;
+          if (u.level === 3) u.windHead += 2;
+          break;
+        case 'repeater':
+          u.wind += T.repBase + T.rep * count.Clockwork + (full('Clockwork') ? T.repFull : 0);
+          if (u.level === 3) units.forEach(a => { if (a !== u && a.row === u.row) a.wind += 0.03; });
+          break;
+        case 'bellringer': {
+          const reach = a => u.level === 3 || a.row === u.row || (u.level === 2 && u.adj.includes(a));
+          units.forEach(a => { if (reach(a)) a.wind += L(u, ...T.bell); });
+          if (u.level === 3) units.forEach(a => { a.windHead += 1; });
+          break;
+        }
+        case 'brassmagus':
+          (u.level === 1 ? u.adj : u.near).forEach(a => { a.wind += T.magus; });
+          break;
+        case 'steamtitan':
+          u.wind += L(u, ...T.titan);
+          break;
+        case 'brassdragon':
+          u.wind += 0.15;
+          units.forEach(a => {
+            if (a === u || !isCW(a)) return;
+            a.wind += L(u, ...T.brass) * count.Clockwork + (full('Clockwork') ? L(u, ...T.brassFull) : 0);
+            if (u.level === 3) a.windHead += 1;
+          });
+          break;
+        default:
+      }
+    });
+    units.forEach(u => {
+      u.windBonus = windAt(u, 0);
+      if (u.id === 'priest' && u.level === 3) u.first = 0;
+      setSpeed(u);
+      u.next = u.interval * u.first;
+    });
+    return team;
+  }
+
+  // Fae: how much the strongest enemy units matter, for the Trickster's hex (damage or healing per second at battle start).
+  function strength(u, side) {
+    const v = u.def.kind === 'heal' ? healValue(u, side) : atkValue(u, side, 0);
+    return v / u.interval;
+  }
+  // Fae: speed a Spirit Stag steals = the slow on the enemy team.
+  function updateStolen(team, foeTeam, t) {
+    const stolen = foeTeam ? Math.min(SLOW_CAP, foeTeam.slowed) : Math.min(SLOW_CAP, team.foeSlow);
+    team.units.forEach(u => {
+      const v = u.id === 'spiritstag' ? T.stagSteal * stolen : (u.race === 'Fae' && team.stagShare ? T.stagSteal * stolen / 2 : 0);   // others: half
+      if (v !== u.stolen) { u.stolen = v; if (t === undefined) setSpeed(u); else respeed(u, t); }
+    });
+  }
+
+  // Damage of one hit right now. side = {team, hp, max}
+  function atkValue(u, side, t) {
+    const d = u.def, team = side.team;
+    let base;
+    switch (u.id) {
+      case 'militiaman': base = d.atk + u.grow; break;
+      case 'crossbowman': base = d.atk + T.crossPer * team.diff; break;
+      case 'gilded': base = d.atk + L(u, ...T.gildedPer) * team.diff; break;
+      case 'ranger': base = d.atk + T.ranger * team.count.Elf; break;
+      case 'brute': base = d.atk + Math.floor(t / L(u, 2, 1.5, 1.5)); break;
+      case 'bloodrager': base = d.atk + T.blood * team.count.Orc + (team.full('Orc') ? T.bloodFull : 0); break;
+      case 'ashmaw': base = d.atk + (u.level === 3 ? T.ashRamp * t : 0); break;
+      case 'shieldbearer': base = d.atk + 20 * (side.shield || 0) / side.max; break;
+      case 'thunderer': base = d.atk + (100 / 6) * team.shield / side.max; break;
+      case 'slayer': base = d.atk + T.slayer * team.count.Dwarf + (team.full('Dwarf') ? T.slayerFull : 0); break;
+      case 'spiritstag': base = d.atk + T.stag * team.count.Fae + (team.full('Fae') ? T.stagFull : 0); break;
+      case 'stormwyrm': base = d.atk + T.storm * team.count.Fae + (team.full('Fae') ? T.stormFull : 0); break;
+      case 'wyrm': base = d.atk + (u.level === 3 ? T.wyrmL3 * team.count.Elf : 0); break;
+      case 'ironbreaker': base = d.atk + team.absorbed / (side.max * L(u, ...T.iron)); break;
+      case 'changeling': base = u.copyAtk || d.atk; break;
+      case 'steamtitan': base = d.atk * (1 + T.titanDmg * u.windBonus); break;
+      default: base = d.atk;
+    }
+    // Enrage given by an adjacent level 3 Brute: +1 attack every 2 seconds.
+    const extra = u.enrage ? u.enrage * Math.floor(t / 2) : 0;
+    // Skullsplitter: extra damage while the enemy health bar is below half (side.foe is set during a fight only).
+    const exec = u.execPct && side.foe && side.foe.hp < side.foe.max * 0.5 ? u.execPct : 0;
+    // Orc buffs make a unit hit a percentage harder (atkPct), on top of everything else.
+    return (base * u.mult + u.buffAtk + extra) * (1 + u.atkPct + exec);
+  }
+
+  // Health restored by one heal. side = {team, max}
+  function healValue(u, side) {
+    if (u.id === 'priest') {
+      const more = L(u, 1, 1.5, 2);
+      return side.max * (T.priest[0] + T.priest[1] * side.team.diff) * more;
+    }
+    if (u.id === 'moonpriestess') return side.max * (T.moon + T.moonPer * side.team.count.Elf) * L(u, 1, 1.25, 1.5);
+    // Runepriest: the value is shield, not health (Runesmith makes it bigger).
+    if (u.id === 'runepriest') return side.max * T.rune * L(u, 1, 1.25, 1.5) * side.team.shieldMult;
+    if (u.id === 'dryad') return side.max * T.dryad * L(u, 1, 1.25, 1.5);
+    return 0;
+  }
+
+  // ---------------------------------------------------------------- battle
+  function createBattle(playerSlots, enemySlots, round) {
+    const max = maxHp(round);
+    const mk = slots => {
+      const team = buildTeam(slots, max);
+      return { team, units: team.units, hp: max, max, shield: team.shield, startShield: team.shield, reshield: team.reshield.slice() };
+    };
+    const b = { round, t: 0, sides: [mk(playerSlots), mk(enemySlots)], over: false, result: null, timeout: false };
+    b.sides[0].foe = b.sides[1]; b.sides[1].foe = b.sides[0];
+    // Changeling: copies the hardest hit of the enemy team at battle start, counted as if that unit were level 1 and
+    // without % boosts from other units (so it copies the unit, not its merges or Orc buffs). Its own level multiplier applies on top.
+    const copied = [];
+    const hitAtL1 = (f, side) => { const m = f.mult, p = f.atkPct; f.mult = 1; f.atkPct = 0; const v = atkValue(f, side, 0); f.mult = m; f.atkPct = p; return v; };
+    b.sides.forEach(me => me.units.forEach(u => {
+      if (u.id !== 'changeling') return;
+      let best = null, bv = 0;
+      me.foe.units.forEach(f => { if (f.def.kind === 'heal') return; const v = hitAtL1(f, me.foe); if (v > bv) { bv = v; best = f; } });
+      u.copyAtk = Math.max(u.def.atk, L(u, ...T.change) * bv);
+      if (u.level === 3 && best) copied.push(best);
+    }));
+
+    // Fae effects at battle start: each side slows, delays and hexes the other one.
+    const fae = b.sides.some(s => s.team.foeSlow || s.team.foeDelay || s.team.hexes.length || s.units.some(u => u.race === 'Fae'));
+    if (fae) {
+      for (let si = 0; si < 2; si++) {
+        const me = b.sides[si], foe = b.sides[1 - si];
+        foe.team.slowed = Math.min(SLOW_CAP, me.team.foeSlow);
+        if (me.team.hexes.length) {
+          const ranked = foe.units.slice().sort((a, c) => strength(c, foe) - strength(a, foe));
+          me.team.hexes.slice().sort((a, c) => c - a).forEach((h, i) => { if (ranked[i]) ranked[i].hex += h; });
+        }
+      }
+      for (let si = 0; si < 2; si++) {
+        const me = b.sides[si], foe = b.sides[1 - si];
+        updateStolen(me.team, foe.team);
+        me.units.forEach(u => { setSpeed(u); u.next = u.interval * u.first; });
+      }
+      for (let si = 0; si < 2; si++) if (b.sides[si].team.foeDelay) delayTeam(b.sides[1 - si].team, b.sides[si].team.foeDelay);
+    }
+    // Level 3 Changeling: the copied enemy unit's first attack comes later (counts toward that unit's delay cap).
+    copied.forEach(f => { const add = Math.max(0, Math.min(T.changeDelay, DELAY_CAP - f.delayed)); f.delayed += add; f.next += add; });
+
+    // Advances the fight by dt seconds and returns what happened, for the UI to animate.
+    b.step = function (dt) {
+      if (b.over) return [];
+      b.t = Math.round((b.t + dt) * 1000) / 1000;
+      const events = [];
+      const dmg = [0, 0];   // damage dealt TO side i
+      const heal = [0, 0];
+      const ward = [0, 0];  // shield gained by side i this tick
+      const slowAdd = [0, 0]; // extra slow put ON side i this tick (Fae)
+      const delayAdd = [0, 0]; // delay put ON side i this tick (Fae)
+      for (let si = 0; si < 2; si++) {
+        const side = b.sides[si];
+        // Units whose speed changes every tick (Clockwork wind-up; a level 3 Steam Titan can add wind-up mid-fight).
+        for (const u of side.units) {
+          if (!(u.wind > 0)) continue;
+          const w = windAt(u, b.t);
+          if (w !== u.windBonus) { u.windBonus = w; respeed(u, b.t); }
+        }
+        for (const u of side.units) {
+          // War Drummer: every few seconds, adjacent (level 2+: and diagonal) units get attack for the fight.
+          if (u.beat !== undefined && b.t + 1e-9 >= u.beat) {
+            u.beat += T.drumEvery;
+            (u.level === 1 ? u.adj : u.near).forEach(a => { a.atkPct += T.drum; events.push({ side: si, uid: a.uid, kind: 'buff', value: T.drum, pct: true }); });
+          }
+          // Level 3 Bloodrager: 30% faster once its own bar is below half.
+          if (u.id === 'bloodrager' && u.level === 3 && !u.fast && side.hp < side.max * 0.5) {
+            u.fast = true; u.speedBonus += 0.30; setSpeed(u);
+          }
+          let guard = 0;
+          while (b.t + 1e-9 >= u.next && guard++ < 5) {
+            u.next += u.interval;
+            if (u.def.kind === 'heal') {
+              const v = healValue(u, side);
+              if (u.def.ward) {
+                ward[si] += v;
+                events.push({ side: si, uid: u.uid, kind: 'ward', value: v });
+                if (u.level === 3) side.units.forEach(a => { if (a.race === 'Dwarf') a.buffAtk += 1; });
+              } else {
+                heal[si] += v;
+                events.push({ side: si, uid: u.uid, kind: 'heal', value: v });
+              }
+              if (u.id === 'moonpriestess' && u.level === 3) {
+                side.units.forEach(a => { if (a.race === 'Elf') { a.speedBonus += 0.05; a.elfSpeed += 0.05; setSpeed(a); } });
+              }
+              if (u.id === 'dryad' && u.level === 3) slowAdd[1 - si] += 0.03;
+            } else {
+              u.attacks++;
+              let v = atkValue(u, side, b.t);
+              let bolt = false;
+              if (u.id === 'spellweaver' && u.attacks % L(u, 2, 2, 1) === 0) { v += L(u, ...T.spell) * side.team.count.Elf; bolt = true; }
+              if (u.id === 'crossbowman' && u.level === 3 && u.attacks % 4 === 0) v *= 2;
+              if (u.id === 'brassmagus' && u.level === 3 && u.attacks % 2 === 0) { v += 2 * side.team.count.Clockwork; bolt = true; }
+              if (u.id === 'runesmith' && u.level === 3) v += 0.1 * side.shield;
+              if (u.id === 'magmadrake') {
+                if (u.level === 3) side.shield += side.max * 0.04 * side.team.shieldMult;
+                const burn = side.shield * 0.2;
+                side.shield -= burn; v += 2 * burn; bolt = burn > 0;
+              }
+              if (u.id === 'stormwyrm') {
+                slowAdd[1 - si] += L(u, 0.05, 0.07, 0.07);
+                if (u.level === 3 && u.attacks % 3 === 0) delayAdd[1 - si] += 0.5;
+              }
+              dmg[1 - si] += v;
+              events.push({ side: si, uid: u.uid, kind: 'attack', value: v, bolt });
+              if (u.id === 'wizard' && u.attacks % L(u, 2, 1, 1) === 0) {
+                const amt = L(u, 2, 2, 3);
+                (u.level === 3 ? u.near : u.adj).forEach(a => { a.buffAtk += amt; events.push({ side: si, uid: a.uid, kind: 'buff', value: amt }); });
+              }
+              // Level 3 Bladedancer: each hit speeds up the other Elves (up to a maximum per Bladedancer).
+              if (u.id === 'bladedancer' && u.level === 3 && u.given < T.dancerMax - 1e-9) {
+                const add = Math.min(T.dancerL3, T.dancerMax - u.given);
+                u.given += add;
+                side.units.forEach(a => { if (a !== u && a.race === 'Elf') { a.speedBonus += add; a.elfSpeed += add; respeed(a, b.t); events.push({ side: si, uid: a.uid, kind: 'buff', value: 0 }); } });
+              }
+              // Level 3 Steam Titan: each hit gives adjacent units (any race) more wind-up.
+              if (u.id === 'steamtitan' && u.level === 3) {
+                u.adj.forEach(a => { a.wind += T.titanL3; events.push({ side: si, uid: a.uid, kind: 'buff', value: 0 }); });
+              }
+            }
+          }
+        }
+      }
+      for (let si = 0; si < 2; si++) {
+        const s = b.sides[si];
+        let d = dmg[si];
+        let broke = false;
+        if (s.shield > 0 && d > 0) {
+          const a = Math.min(s.shield, d); s.shield -= a; d -= a; s.team.absorbed += a;
+          if (s.shield <= 1e-9) broke = true;
+        }
+        // Knight level 2+: a broken shield comes back once.
+        if (s.shield <= 0 && s.reshield.length && dmg[si] > 0) {
+          s.shield = s.reshield.shift();
+          events.push({ side: si, kind: 'reshield', value: s.shield });
+          const a = Math.min(s.shield, d); s.shield -= a; d -= a; s.team.absorbed += a;
+          if (a > 0 && s.shield <= 1e-9) broke = true;
+        }
+        s.hp -= d;
+        if (s.hp > 0 && heal[si] > 0) {
+          const over = s.hp + heal[si] - s.max;
+          s.hp = Math.min(s.max, s.hp + heal[si]);
+          // Priest: healing beyond full health becomes shield.
+          if (over > 0 && s.team.overheal) s.shield += over * s.team.shieldMult;
+        }
+        if (ward[si] > 0) s.shield += ward[si];
+        // Level 3 Slayer: strikes at once when the shield breaks.
+        if (broke) {
+          events.push({ side: si, kind: 'shieldbreak' });
+          s.units.forEach(u => { if (u.id === 'slayer' && u.level === 3) u.next = Math.min(u.next, b.t + CFG.tick); });
+        }
+      }
+      // Fae effects that happened this tick.
+      for (let si = 0; si < 2; si++) {
+        if (slowAdd[si] > 0) { slowTeam(b.sides[si].team, slowAdd[si], b.t); events.push({ side: si, kind: 'slow', value: b.sides[si].team.slowed }); }
+        if (delayAdd[si] > 0) { delayTeam(b.sides[si].team, delayAdd[si]); events.push({ side: si, kind: 'delay', value: delayAdd[si] }); }
+      }
+      if (slowAdd[0] > 0 || slowAdd[1] > 0) for (let si = 0; si < 2; si++) updateStolen(b.sides[si].team, b.sides[1 - si].team, b.t);
+      const pDead = b.sides[0].hp <= 0, eDead = b.sides[1].hp <= 0;
+      if (pDead || eDead) {
+        b.over = true;
+        if (pDead && eDead) {
+          // Both bars emptied in the same tick: the side that overshot less wins.
+          const p = b.sides[0].hp, e = b.sides[1].hp;
+          b.result = Math.abs(p - e) < 1e-6 ? 'draw' : p > e ? 'win' : 'loss';
+        } else {
+          b.result = pDead ? 'loss' : 'win';
+        }
+      } else if (b.t >= CFG.maxTime) {
+        b.over = true; b.timeout = true;
+        const p = b.sides[0].hp, e = b.sides[1].hp;
+        b.result = Math.abs(p - e) < 1e-6 ? 'draw' : p > e ? 'win' : 'loss';
+      }
+      return events;
+    };
+    return b;
+  }
+
+  function runBattle(b) {
+    let n = 0;
+    while (!b.over && n++ < 5000) b.step(CFG.tick);
+    return b.result;
+  }
+
+  // ----------------------------------------------------------- AI opponents
+  // ======== ENEMY TUNING (temporary) ========
+  // Everything that sets how strong the generated enemy teams are lives in this block. It is a stand-in until you fight
+  // other players' ghosts (saved boards); then generateEnemy and this block can go. The tutorial supplies its own enemies
+  // (script.enemy) and never comes through here. The health bar is NOT part of this: it is the same for both sides.
+  const GT = root.GAME_TUNE || {};   // test hook (balance scripts), unused in the game
+  // Team size by round (round 1, 2, 3...); a full 6 after the list ends.
+  const ENEMY_COUNT = GT.enemyCount || [0, 2, 3, 4, 5];
+  // Tier odds for enemy units. null = use the shop table (TIER_ODDS).
+  const ENEMY_TIER_ODDS = GT.enemyOdds || null;
+  // Chance that an enemy unit is level 3 / level 2 grows smoothly with the round.
+  // Level 2 chance: +11.5% per round from round 2, at most 64%. Level 3 chance: +5% per round from round 4, at most 42%.
+  // History: level 2 was +10% / max 65% while Siege Engines existed (an enemy siege took 2 cells, so late enemy teams
+  // averaged about 5.3 units), then +8.5% / max 52% (level 3: +5% / max 40%) with 1-cell units only. It went up again with the
+  // softer shop tier odds (fewer tier 4-5, more tier 1-3): players now merge cheap units to level 3 far more often, enemies
+  // do not merge, so they get these extra levels instead. Most of the raise is on level 2, which bites in rounds 3-7;
+  // raising level 3 instead hits the late game, where focused (one-race) boards are strongest, and flattened their edge.
+  const ENEMY_L2 = GT.enemyL2 || [0.115, 0.64], ENEMY_L3 = GT.enemyL3 || [0.05, 0.42];
+  // Expensive units level up more slowly, as they would for a player: tier 4 at 40% and tier 5 at 30% of the usual chance.
+  const ENEMY_LEVEL_RATE = GT.enemyRate || [0, 1, 1, 1, 0.4, 0.3];
+  // ======== end of ENEMY TUNING ========
+  function pickLevel(round, rng, tier) {
+    const f = ENEMY_LEVEL_RATE[tier] || 1;
+    const p3 = f * Math.min(ENEMY_L3[1], Math.max(0, (round - 3) * ENEMY_L3[0]));
+    const p2 = f * Math.min(ENEMY_L2[1], Math.max(0, (round - 1) * ENEMY_L2[0]));
+    const r = rng();
+    return r < p3 ? 3 : r < p3 + p2 ? 2 : 1;
+  }
+
+  function generateEnemy(round, rng) {
+    // Enemy team size by round (round 1, 2, 3...); a full 6 after the list ends.
+    const n = ENEMY_COUNT[round] || 6;
+    // Each enemy team follows the same rule as you: it draws from its own set of (at most) poolSize races.
+    const races = pickRaces(rng, CFG.poolSize);
+    const pref = races[Math.floor(rng() * races.length)];
+    const slots = [];
+    const occ = new Array(CELLS).fill(false);
+    let guard = 0;
+    while (slots.length < n && guard++ < 80) {
+      // Enemy units roll their tier from ENEMY_TIER_ODDS (or the shop table); 60% of them lean toward one race.
+      const d = pickUnit(rollTier(round, rng, ENEMY_TIER_ODDS), rng, rng() < 0.6 ? pref : null, races);
+      const spots = [];
+      for (let c = 0; c < CELLS; c++) {
+        if (d.w === 1 && !occ[c]) spots.push(c);
+        if (d.w === 2 && c % COLS < COLS - 1 && !occ[c] && !occ[c + 1]) spots.push(c);
+      }
+      if (!spots.length) continue;
+      const cell = spots[Math.floor(rng() * spots.length)];
+      cellsOf(cell, d.w).forEach(c => { occ[c] = true; });
+      slots.push({
+        uid: 'e' + slots.length, id: d.id, cell, level: pickLevel(round, rng, d.tier),
+        grow: d.id === 'militiaman' ? Math.min(MILITIA_CAP, Math.floor(round / 2)) : 0,
+      });
+    }
+    return { race: pref, races, slots };
+  }
+
+  // ------------------------------------------------------------- game state
+  // opts (used by the tutorial only): { pool: [races], winTarget: n, script: { shop(round, rolls) -> unit ids, enemy(round) -> {races, slots} } }.
+  // A script makes the shop and the enemies fixed; without it nothing here changes.
+  function newGame(rng, opts) {
+    const s = {
+      rng: rng || Math.random,
+      pool: null, round: 1, gold: goldFor(1), lives: CFG.startLives, wins: 0,
+      board: [], bench: new Array(CFG.benchSize).fill(null), shop: [], phase: 'shop', nextUid: 1,
+      battle: null, enemy: null, lastResult: null, rolls: 0, locked: false, winTarget: (opts && opts.winTarget) || CFG.winTarget, script: (opts && opts.script) || null,
+    };
+    s.pool = opts && opts.pool ? opts.pool.slice() : pickRaces(s.rng, CFG.poolSize);
+    rollShop(s);
+    return s;
+  }
+
+  function rollShop(s) {
+    if (s.script && s.script.shop) { s.shop = s.script.shop(s.round, s.rolls++).slice(); return; }
+    s.shop = [];
+    for (let i = 0; i < CFG.shopSize; i++) s.shop.push(pickUnit(rollTier(s.round, s.rng), s.rng, null, s.pool).id);
+  }
+
+  function occupancy(board, ignore) {
+    const occ = new Array(CELLS).fill(null);
+    for (const u of board) {
+      if (ignore && ignore.includes(u.uid)) continue;
+      cellsOf(u.cell, BY_ID[u.id].w).forEach(c => { occ[c] = u.uid; });
+    }
+    return occ;
+  }
+
+  // Where would a unit of width w go if dropped on `cell`? Returns its left cell or -1.
+  function findPlacement(board, w, cell, ignore) {
+    const occ = occupancy(board, ignore);
+    const col = cell % COLS;
+    let options;
+    if (w === 1) options = [cell];
+    else options = col === 0 ? [cell] : col === 1 ? [cell, cell - 1] : [cell - 1];
+    for (const left of options) {
+      if (cellsOf(left, w).every(c => occ[c] === null)) return left;
+    }
+    return -1;
+  }
+
+  function unitAt(board, cell) {
+    return board.find(u => cellsOf(u.cell, BY_ID[u.id].w).includes(cell)) || null;
+  }
+
+  // ------------------------------------------------------------------ bench
+  // The bench has CFG.benchSize slots, each holding one unit of any size. Benched units do not fight and
+  // do not count for race or adjacency bonuses, but they do count for merging.
+  const allUnits = s => s.board.concat(s.bench.filter(Boolean));
+  const sameUnits = (s, id, level) => allUnits(s).filter(u => u.id === id && u.level === level);
+  const onBoard = (s, u) => s.board.includes(u);
+
+  function locate(s, uid) {
+    const b = s.board.find(u => u.uid === uid);
+    if (b) return { unit: b, zone: 'board' };
+    const slot = s.bench.findIndex(u => u && u.uid === uid);
+    if (slot >= 0) return { unit: s.bench[slot], zone: 'bench', slot };
+    return null;
+  }
+
+  function removeUnit(s, u) {
+    s.board = s.board.filter(x => x !== u);
+    const i = s.bench.indexOf(u);
+    if (i >= 0) s.bench[i] = null;
+  }
+
+  // ---------------------------------------------------------------- merging
+  // Works like Teamfight Tactics: three copies of the same unit at the same level become one unit of the
+  // next level, automatically, and chains continue (three level 2 become a level 3). Board and bench count.
+
+  // Would buying one more `id` complete a trio of level 1 units?
+  const completesMerge = (s, id) => sameUnits(s, id, 1).length >= 2;
+
+  // Merges every complete trio of `id`. `extra` is a just-bought unit that has no place yet; it is consumed
+  // by the merge. The merged unit stays on the board if any of the three stood there (on the anchor's cell if
+  // the anchor is on the board, else on the front-left-most one), otherwise it stays on the bench.
+  // Returns the highest level reached, or 0 if nothing merged.
+  function autoMerge(s, id, anchorUid, extra) {
+    let reached = 0;
+    let anchor = anchorUid;
+    let pending = extra || null;
+    for (let level = 1; level < MAX_LEVEL; level++) {
+      const group = sameUnits(s, id, level);
+      if (pending && pending.level === level) group.push(pending);
+      if (group.length < 3) continue;
+      const place = u => (u === pending ? 2 : onBoard(s, u) ? 0 : 1);
+      const where = u => (onBoard(s, u) ? u.cell : s.bench.indexOf(u));
+      const first = u => (u.uid === anchor ? 0 : 1);
+      const trio = group.slice().sort((a, b) => place(a) - place(b) || first(a) - first(b) || where(a) - where(b)).slice(0, 3);
+      const keep = trio[0];
+      keep.level = level + 1;
+      keep.grow = Math.max(...trio.map(u => u.grow || 0));
+      trio.slice(1).forEach(u => { if (u === pending) pending = null; else removeUnit(s, u); });
+      anchor = keep.uid;
+      reached = keep.level;
+    }
+    return reached;
+  }
+
+  // -------------------------------------------------------------- buying
+  // Checks shared by every kind of purchase.
+  function checkBuy(s, idx) {
+    if (s.phase !== 'shop') return { err: fail('You can only shop between fights.') };
+    const id = s.shop[idx];
+    if (!id) return { err: fail('That slot is empty.') };
+    const d = BY_ID[id];
+    if (s.gold < d.cost) return { err: fail('Not enough gold.') };
+    return { id, d };
+  }
+
+  // Pays for the unit and puts it at `place` ({board: leftCell} or {bench: slot}). With place = null the unit
+  // completes a trio and is merged straight away, so it needs no space at all.
+  function completeBuy(s, idx, d, place, anchorUid) {
+    const unit = { uid: s.nextUid++, id: d.id, level: 1, grow: 0 };
+    s.gold -= d.cost;
+    s.shop[idx] = null;
+    let reached;
+    if (!place) {
+      reached = autoMerge(s, d.id, anchorUid || null, unit);
+    } else {
+      if (place.board !== undefined) { unit.cell = place.board; s.board.push(unit); }
+      else s.bench[place.bench] = unit;
+      reached = autoMerge(s, d.id, unit.uid, null);
+    }
+    if (reached) return ok(d.name + ' merged into a level ' + reached + ' unit!');
+    return ok(place && place.bench !== undefined ? 'Bought ' + d.name + ' (on your bench).' : 'Bought ' + d.name + '.');
+  }
+
+  function buyToCell(s, idx, cell) {
+    const c = checkBuy(s, idx);
+    if (c.err) return c.err;
+    const { id, d } = c;
+    const target = unitAt(s.board, cell);
+    const left = target ? -1 : findPlacement(s.board, d.w, cell);
+    if (left >= 0) return completeBuy(s, idx, d, { board: left });
+    if (completesMerge(s, id)) return completeBuy(s, idx, d, null, target && target.id === id ? target.uid : null);
+    if (target) return fail('That cell is taken. Pick an empty cell, or a bench slot.');
+    return fail(d.w === 2 ? 'Not enough room: ' + d.name + ' needs 2 free cells side by side. Try the bench.' : 'No room there.');
+  }
+
+  function buyToBench(s, idx, slot) {
+    const c = checkBuy(s, idx);
+    if (c.err) return c.err;
+    const { id, d } = c;
+    if (!s.bench[slot]) return completeBuy(s, idx, d, { bench: slot });
+    if (completesMerge(s, id)) return completeBuy(s, idx, d, null, s.bench[slot].id === id ? s.bench[slot].uid : null);
+    return fail('That bench slot is taken.');
+  }
+
+  // Double-click purchase: completes a merge if it can, otherwise takes the first free board cell,
+  // otherwise the first free bench slot.
+  function buyAuto(s, idx) {
+    const c = checkBuy(s, idx);
+    if (c.err) return c.err;
+    const { id, d } = c;
+    if (completesMerge(s, id)) return completeBuy(s, idx, d, null, null);
+    for (let cell = 0; cell < CELLS; cell++) {
+      const left = findPlacement(s.board, d.w, cell);
+      if (left >= 0) return completeBuy(s, idx, d, { board: left });
+    }
+    const slot = s.bench.indexOf(null);
+    if (slot >= 0) return completeBuy(s, idx, d, { bench: slot });
+    return fail('Your board and bench are full. Sell a unit first.');
+  }
+
+  // -------------------------------------------------------- moving and selling
+  // zone is 'board' (index = cell) or 'bench' (index = slot).
+  function moveUnit(s, uid, zone, index) {
+    if (s.phase !== 'shop') return fail('You can only rearrange between fights.');
+    const at = locate(s, uid);
+    if (!at) return fail('No such unit.');
+    const u = at.unit;
+    const d = BY_ID[u.id];
+
+    if (zone === 'bench') {
+      const other = s.bench[index];
+      if (other === u) return ok();
+      if (!other) {
+        removeUnit(s, u);
+        delete u.cell;
+        s.bench[index] = u;
+        return ok();
+      }
+      if (at.zone === 'bench') { s.bench[at.slot] = other; s.bench[index] = u; return ok('Swapped.'); }
+      // A board unit and a bench unit trade places if the bench unit fits where the board unit stood.
+      const rest = s.board.filter(x => x !== u);
+      const left = findPlacement(rest, BY_ID[other.id].w, u.cell, []);
+      if (left < 0) return fail(BY_ID[other.id].name + ' does not fit there.');
+      s.board = rest;
+      other.cell = left;
+      s.board.push(other);
+      delete u.cell;
+      s.bench[index] = u;
+      return ok('Swapped.');
+    }
+
+    // The target is a board cell.
+    const target = unitAt(s.board, index);
+    if (target === u) return ok();
+    if (at.zone === 'bench') {
+      if (!target) {
+        const left = findPlacement(s.board, d.w, index);
+        if (left < 0) return fail(d.w === 2 ? d.name + ' needs 2 free cells side by side.' : 'No room there.');
+        s.bench[at.slot] = null;
+        u.cell = left;
+        s.board.push(u);
+        return ok();
+      }
+      const rest = s.board.filter(x => x !== target);
+      const left = findPlacement(rest, d.w, index, []);
+      if (left < 0 && d.w === 2) return dropSiege(s, u, at.slot, index);
+      if (left < 0) return fail('They do not fit there.');
+      s.board = rest;
+      delete target.cell;
+      s.bench[at.slot] = target;
+      u.cell = left;
+      s.board.push(u);
+      return ok('Swapped.');
+    }
+    // Board to board: move, or swap if both still fit afterwards.
+    if (target) {
+      const ignore = [u.uid, target.uid];
+      const oldCell = u.cell;
+      const a = findPlacement(s.board, d.w, index, ignore);
+      if (a < 0) return fail('They do not fit there.');
+      const tmp = { uid: u.uid, id: u.id, cell: a };
+      const rest = s.board.filter(x => x !== u && x !== target);
+      const bLeft = findPlacement(rest.concat([tmp]), BY_ID[target.id].w, oldCell, []);
+      if (bLeft < 0) return fail('They do not fit there.');
+      u.cell = a; target.cell = bLeft;
+      return ok('Swapped.');
+    }
+    const left = findPlacement(s.board, d.w, index, [u.uid]);
+    if (left < 0) return fail(d.w === 2 ? d.name + ' needs 2 free cells side by side.' : 'No room there.');
+    u.cell = left;
+    return ok();
+  }
+
+  // A 2-cell unit (old Siege Engine) dragged from the bench onto taken cells sends every unit in its way to the bench.
+  // Dormant: no unit in DEFS is 2 cells wide any more. Kept so a 2-cell unit can be added back without engine work.
+  function dropSiege(s, u, fromSlot, index) {
+    const col = index % COLS;
+    const options = col === 0 ? [index] : col === 1 ? [index, index - 1] : [index - 1];
+    const free = [fromSlot].concat(s.bench.map((x, i) => (x ? -1 : i)).filter(i => i >= 0));
+    for (const left of options) {
+      const blockers = [];
+      cellsOf(left, 2).forEach(c => { const o = unitAt(s.board, c); if (o && !blockers.includes(o)) blockers.push(o); });
+      if (blockers.length > free.length) continue;
+      s.bench[fromSlot] = null;
+      blockers.forEach((b, i) => { s.board = s.board.filter(x => x !== b); delete b.cell; s.bench[free[i]] = b; });
+      u.cell = left;
+      s.board.push(u);
+      return ok('Swapped.');
+    }
+    return fail('Not enough bench space for the units in the way.');
+  }
+
+  function sell(s, uid) {
+    if (s.phase !== 'shop') return fail('You can only sell between fights.');
+    const at = locate(s, uid);
+    if (!at) return fail('No such unit.');
+    const gold = sellValue(at.unit);
+    s.gold += gold;
+    removeUnit(s, at.unit);
+    return ok('Sold ' + BY_ID[at.unit.id].name + ' for ' + gold + ' gold.');
+  }
+
+  function reroll(s) {
+    if (s.phase !== 'shop') return fail('You can only reroll between fights.');
+    if (s.gold < CFG.rerollCost) return fail('Not enough gold.');
+    s.gold -= CFG.rerollCost;
+    rollShop(s);
+    return ok();
+  }
+
+  // Lock the shop: after the next fight the same cards stay (no automatic reroll). Click again to unlock.
+  function toggleLock(s) {
+    if (s.phase !== 'shop') return fail('You can only lock the shop between fights.');
+    s.locked = !s.locked;
+    return ok();
+  }
+
+  const toSlot = u => ({ uid: u.uid, id: u.id, cell: u.cell, level: u.level, grow: u.grow || 0 });
+
+  function startBattle(s) {
+    if (s.phase !== 'shop') return fail('Not in the shop phase.');
+    s.enemy = s.script && s.script.enemy ? s.script.enemy(s.round) : generateEnemy(s.round, s.rng);
+    s.battle = createBattle(s.board.map(toSlot), s.enemy.slots, s.round);
+    s.phase = 'battle';
+    return ok();
+  }
+
+  function finishBattle(s) {
+    const b = s.battle;
+    if (!b || !b.over || s.phase !== 'battle') return fail('No finished battle.');
+    s.lastResult = b.result;
+    if (b.result === 'win') s.wins++;
+    else if (b.result === 'loss') s.lives--;
+    s.phase = s.wins >= s.winTarget ? 'won' : s.lives <= 0 ? 'lost' : 'result';
+    return ok();
+  }
+
+  function nextRound(s) {
+    if (s.phase !== 'result') return fail('The round is not over.');
+    s.round++;
+    s.gold += goldFor(s.round);   // unspent gold carries over
+    // Militiaman: +1 attack per round on the board; from level 2 it also grows while on the bench.
+    allUnits(s).forEach(u => { if (u.id === 'militiaman' && (u.level >= 2 || onBoard(s, u))) u.grow = Math.min(MILITIA_CAP, (u.grow || 0) + 1); });
+    s.battle = null; s.enemy = null;
+    s.phase = 'shop';
+    s.rolls = 0;
+    if (!s.locked) rollShop(s);
+    else for (let i = 0; i < CFG.shopSize; i++) {   // a locked shop keeps its cards; slots you bought from are filled again
+      if (!s.shop[i]) s.shop[i] = pickUnit(rollTier(s.round, s.rng), s.rng, null, s.pool).id;
+    }
+    return ok();
+  }
+
+  // Live numbers for the board (attack, speed, heal), shown in the shop phase.
+  function preview(board, round) {
+    const max = maxHp(round);
+    const team = buildTeam(board.map(toSlot), max);
+    const side = { team, hp: max, max, shield: team.shield };
+    updateStolen(team, null);   // Spirit Stag: speed from your own battle-start slow
+    const units = {};
+    team.units.forEach(u => {
+      const p = u.def.kind === 'heal'
+        ? { heal: healValue(u, side), interval: u.interval, speed: u.speed, level: u.level }
+        : { atk: atkValue(u, side, 0), interval: u.interval, speed: u.speed, level: u.level };
+      if (u.def.ward) p.ward = true;            // Runepriest: the 'heal' number is shield
+      if (u.wind > 0) p.wind = u.wind;          // wind-up: speed gained per second of the fight (any race next to Clockwork)
+      if (u.atkPct > 0) p.atkPct = u.atkPct;    // Orc buffs: this unit hits this much harder (already inside atk)
+      units[u.uid] = p;
+    });
+    // foeSlow / foeDelay: what your Fae do to the enemy at battle start (slow capped at SLOW_CAP).
+    // fullRace: the race of a full mono board (all 6 cells, one race), for the "full board" bonus of the mono payoff units.
+    const fullRace = RACES.find(r => team.full(r)) || null;
+    return { units, shield: team.shield, diff: team.diff, count: team.count, fullRace,
+      foeSlow: Math.min(SLOW_CAP, team.foeSlow), foeDelay: Math.min(DELAY_CAP, team.foeDelay), hexes: team.hexes.slice() };
+  }
+
+  const api = {
+    CFG, COLS, ROWS, CELLS, RACES, RACE_INFO, TUNING: T, pickRaces, SLOW_CAP, UNIT_SLOW_CAP, DELAY_CAP, WIND_CAP, DEFS, BY_ID, MULT, unitText,
+    maxHp, maxTier, goldFor, tierOdds: oddsFor, MAX_LEVEL, sellValue, completesMerge,
+    newGame, rollShop, buyToCell, buyToBench, buyAuto, moveUnit, sell, reroll, toggleLock, locate,
+    startBattle, finishBattle, nextRound, preview,
+    createBattle, runBattle, generateEnemy, findPlacement, unitAt,
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.Game = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/*
+ * Warbands tutorial: a scripted run. No DOM code in here, so the same file runs in the browser and in Node (for tests).
+ * The tutorial uses the normal engine, but with a fixed shop and fixed enemies (see newGame opts.script in game.js),
+ * 5 wins to finish, and one fight (round 3) that the player always loses, to teach what a defeat does.
+ * ui.js shows the text of the current step and blocks every action that the step does not allow.
+ *
+ * Step kinds:
+ *   info   text and a Next button.
+ *   do     the player must do what the text says (allow = what is possible; done(S) = when the step is finished).
+ *   fight  the player presses Fight. battleText is shown during the fight, winText / loseText after it.
+ * allow:  shop   [card indexes] or 'any'      which shop cards can be bought
+ *         to     'board' | 'bench' | 'any' | fn(S) -> [board cells]     where a bought unit may go
+ *         auto   true: double-click buy is OK (it picks a free cell itself)
+ *         units  [unit ids] or true            which units can be selected / moved / sold
+ *         move   true: units can be moved on the board and bench
+ *         sell, reroll, fight   true: the button works
+ */
+(function (root) {
+  'use strict';
+
+  const POOL = ['Human', 'Orc', 'Dwarf'];
+  const WIN_TARGET = 5;
+
+  // Shop cards by round; the second list is what the shop shows after one reroll, and so on.
+  const SHOPS = {
+    1: [['militiaman', 'grunt', 'shieldbearer', 'militiaman', 'brute']],
+    2: [['militiaman', 'militiaman', 'knight', 'brute', 'thunderer']],
+    3: [['shieldbearer', 'militiaman', 'grunt', 'knight', 'brute'], ['thunderer', 'brute', 'shieldbearer', 'grunt', 'knight']],
+    4: [['militiaman', 'shieldbearer', 'thunderer', 'brute', 'runepriest']],
+    5: [['grunt', 'knight', 'brute', 'runepriest', 'bloodrager'], ['thunderer', 'shieldbearer', 'knight', 'grunt', 'brute']],
+    6: [['shaman', 'crossbowman', 'grunt', 'bloodrager', 'shieldbearer'], ['thunderer', 'knight', 'brute', 'grunt', 'militiaman']],
+  };
+  // After the curated lists run out, every further reroll still shows a different (but fixed) shop.
+  const EXTRA = ['militiaman', 'grunt', 'shieldbearer', 'brute', 'knight', 'thunderer', 'shaman', 'crossbowman', 'bloodrager', 'runepriest'];
+  const shop = (round, rolls) => {
+    const l = SHOPS[round] || SHOPS[6];
+    if (rolls < l.length) return l[rolls];
+    const o = (rolls * 3) % EXTRA.length;
+    return [0, 1, 2, 3, 4].map(i => EXTRA[(o + i * 2) % EXTRA.length]);
+  };
+
+  // Enemies by round: [unit id, cell, level]. The enemy's races only show in its title.
+  const ENEMIES = {
+    1: { races: ['Elf', 'Fae'], units: [['militiaman', 1, 1], ['pixie', 4, 1]] },
+    2: { races: ['Elf', 'Fae'], units: [['sentinel', 1, 1], ['thornguard', 3, 1], ['pixie', 5, 1]] },
+    3: { races: ['Human', 'Orc', 'Dwarf'], units: [['knight', 0, 3], ['bloodrager', 1, 2], ['brute', 2, 3], ['thunderer', 3, 3], ['shieldbearer', 4, 3], ['militiaman', 5, 3]], grow: 4 },
+    4: { races: ['Elf', 'Clockwork'], units: [['sentinel', 0, 1], ['ranger', 1, 1], ['cogling', 3, 1], ['pixie', 5, 1]] },
+    5: { races: ['Elf', 'Fae', 'Clockwork'], units: [['sentinel', 0, 1], ['ranger', 1, 1], ['thornguard', 2, 1], ['cogling', 3, 1], ['pixie', 4, 1]] },
+    6: { races: ['Elf', 'Fae', 'Clockwork'], units: [['sentinel', 0, 1], ['ranger', 1, 1], ['thornguard', 2, 1], ['cogling', 3, 1], ['pixie', 4, 1], ['automaton', 5, 1]] },
+  };
+  const enemy = round => {
+    const e = ENEMIES[round] || ENEMIES[6];
+    return {
+      race: e.races[0], races: e.races.slice(),
+      slots: e.units.map((u, i) => ({ uid: 'e' + i, id: u[0], cell: u[1], level: u[2], grow: u[0] === 'militiaman' ? (e.grow || 0) : 0 })),
+    };
+  };
+
+  const script = { shop, enemy };
+
+  // ---------------------------------------------------------------- helpers for the steps
+  const has = (S, id, level) => S.board.concat(S.bench.filter(Boolean)).some(u => u.id === id && (!level || u.level >= level));
+  const onBoard = (S, id) => S.board.some(u => u.id === id);
+  const onBench = (S, id) => S.bench.some(u => u && u.id === id);
+  // Cells that touch cell c (up, down, left, right) on the 3x2 board.
+  const adj = c => { const r = Math.floor(c / 3), col = c % 3, out = []; if (col > 0) out.push(c - 1); if (col < 2) out.push(c + 1); if (r > 0) out.push(c - 3); if (r < 1) out.push(c + 3); return out; };
+  const FREE = { shop: 'any', to: 'any', auto: true, units: true, move: true, sell: true, reroll: true, fight: true };
+
+  const STEPS = [
+    // ---- round 1: buying, placing, neighbours, the fight
+    { kind: 'info', round: 1, title: 'Welcome to Warbands',
+      text: 'You lead a warband. Each round you spend gold in the shop, then your army fights an enemy warband on its own. Win 5 fights to finish this tutorial.' },
+    { kind: 'do', round: 1, title: 'Buy a unit',
+      text: 'Buy the Militiaman: drag its card onto a cell of your board, or click the card twice. A unit costs as much gold as its tier.',
+      allow: { shop: [0], to: 'board', auto: true }, done: S => onBoard(S, 'militiaman') },
+    { kind: 'do', round: 1, title: 'Neighbours matter',
+      text: 'Now the Grunt. Orcs give attack to the units around them, whatever their race. Place it right next to the Militiaman (up, down, left or right).',
+      allow: { shop: [1], to: S => { const m = S.board.find(u => u.id === 'militiaman'); return m ? adj(m.cell) : []; } },
+      done: S => onBoard(S, 'grunt') },
+    { kind: 'info', round: 1, title: 'Read your units',
+      text: 'Hover over a unit (or tap it) to read what it does. The yellow line shows its real numbers right now: the Grunt gives the Militiaman +15% attack.' },
+    { kind: 'fight', round: 1, title: 'Fight!',
+      text: 'Press Fight! The battle runs by itself.',
+      battleText: 'Each side has one shared health bar. Every hit chips the enemy bar. Empty it first and you win.',
+      winText: 'You won! That is 1 win out of 5.', loseText: '',
+      allow: { fight: true } },
+
+    // ---- round 2: gold, bench, merging, shields
+    { kind: 'info', round: 2, title: 'New round, new gold',
+      text: 'You get new gold every round (unspent gold carries over), and a new shop. Three copies of the same unit merge into a stronger one. Let us try it.' },
+    { kind: 'do', round: 2, title: 'The bench',
+      text: 'Buy a Militiaman and drop it on a bench slot (below your board). Bench units do not fight, but they count for merges.',
+      allow: { shop: [0], to: 'bench' }, done: S => onBench(S, 'militiaman') },
+    { kind: 'do', round: 2, title: 'Merge',
+      text: 'Buy the second Militiaman, anywhere you like. With the one on your board that makes three, so they merge automatically.',
+      allow: { shop: [1], to: 'any', auto: true }, done: S => has(S, 'militiaman', 2) },
+    { kind: 'info', round: 2, title: 'Level 2',
+      text: 'Merged! A level 2 unit has much more attack and a stronger ability, and level 3 gets even more. Hover it to compare the levels.' },
+    { kind: 'do', round: 2, title: 'Shields',
+      text: 'Buy the Knight and put it on your board. At battle start it gives your team a shield (blue) that soaks up damage before your health bar.',
+      allow: { shop: [2], to: 'board', auto: true }, done: S => onBoard(S, 'knight') },
+    { kind: 'fight', round: 2, title: 'Fight!',
+      text: 'Press Fight!',
+      battleText: 'Watch the blue shield absorb the first hits.', winText: 'Another win! 2 out of 5.', loseText: '',
+      allow: { fight: true } },
+
+    // ---- round 3: reroll, and a fight that cannot be won
+    { kind: 'do', round: 3, title: 'Reroll',
+      text: 'Not happy with the shop? Press Reroll (1 gold) to see new units.',
+      allow: { reroll: true }, done: S => S.rolls >= 2 },
+    { kind: 'do', round: 3, title: 'Grow your army',
+      text: 'Buy the Thunderer and the Brute and put them on your board. More units means more hits.',
+      allow: { shop: [0, 1], to: 'board', auto: true }, done: S => onBoard(S, 'thunderer') && onBoard(S, 'brute') },
+    { kind: 'fight', round: 3, title: 'Fight!',
+      text: 'Press Fight and see how it goes.',
+      battleText: 'Let us see how this one ends.',
+      winText: '', loseText: 'You lost this one, and that is fine. A defeat costs you a life (♥) and gives no win. You have 5 lives, and the run ends when they are all gone. Lose a fight, learn, and keep going.',
+      allow: { fight: true } },
+
+    // ---- round 4: selling, tiers
+    { kind: 'info', round: 4, title: 'Back on track',
+      text: 'Sometimes you want to sell a unit to afford a better one. A level 1 unit sells for its full price, a merged unit for a little less.' },
+    { kind: 'do', round: 4, title: 'Sell a unit',
+      text: 'Click the Thunderer to select it, then press Sell.',
+      allow: { units: ['thunderer'], sell: true }, done: S => !has(S, 'thunderer') },
+    { kind: 'do', round: 4, title: 'Higher tiers',
+      text: 'Buy the Runepriest: a tier 3 unit, so it costs 3 gold. Higher tiers are stronger and show up more often in later rounds. It adds shields during the fight.',
+      allow: { shop: [4], to: 'board', auto: true }, done: S => onBoard(S, 'runepriest') },
+    { kind: 'fight', round: 4, title: 'Fight!',
+      text: 'Press Fight!',
+      battleText: 'The Runepriest adds a new shield every few seconds.', winText: 'You are back in the lead: 3 wins out of 5.', loseText: '',
+      allow: { fight: true } },
+
+    // ---- round 5: races, free play
+    { kind: 'info', round: 5, title: 'Races',
+      text: 'The coloured chips at the top show which races can appear in your shop this run. Orcs help the units around them, Dwarves make shields, Humans like having different races on the board. Units marked ★ Mono grow with every unit of their own race.' },
+    { kind: 'fight', round: 5, title: 'Your turn',
+      text: 'Spend your gold, arrange your army (neighbours matter!) and press Fight. Reroll, sell and move units if you like.',
+      battleText: 'Your army, your choices.', winText: '4 wins out of 5. One more!', loseText: '',
+      allow: FREE },
+    { kind: 'fight', round: 6, title: 'The last fight',
+      text: 'One more win and you are done. Build your army and press Fight!',
+      battleText: 'Good luck!', winText: '', loseText: '',
+      allow: FREE },
+  ];
+
+  const api = { POOL, WIN_TARGET, script, STEPS, shop, enemy, adj,
+    options: () => ({ pool: POOL, winTarget: WIN_TARGET, script }) };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.Tutorial = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Medieval Auto Battler: interface. Talks to the engine in game.js (window.Game). */
+(function () {
+  'use strict';
+  const G = window.Game;
+
+  // Flip to true once sprites/<unit id>.png exist (32x32 PNGs). Missing files fall back to the placeholder.
+  const USE_SPRITES = false;
+  const ICON = { Warrior: '🛡️', Archer: '🏹', Mage: '🔮', Cleric: '💚', Bard: '🎵', Champion: '⚔️', Peasant: '🌾', Berserker: '🪓', Dragon: '🐉' };
+
+  const $ = id => document.getElementById(id);
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  const fmt = n => (Math.round(n * 10) / 10).toString();
+
+  // ---------------------------------------------------------------- sound
+  // All sounds are made in the browser (Web Audio), so there are no audio files. To use a real sound file later, replace the
+  // function of that name in `sounds`.
+  const SFX = (() => {
+    let ctx = null, master = null, muted = false, noiseBuf = null;
+    try { muted = localStorage.getItem('mab-muted') === '1'; } catch (e) { /* storage may be blocked */ }
+    const lastAt = {};
+    let winStart = 0, winCount = 0;
+    function ensure() {
+      if (!ctx) {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.3;
+          master.connect(ctx.destination);
+        } catch (e) { ctx = null; return null; }
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+    function env(g, t0, dur, vol) {
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    }
+    function tone(freq, dur, o) {
+      o = o || {};
+      const t0 = ctx.currentTime + (o.at || 0);
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t0 + dur);
+      env(g, t0, dur, (o.vol || 0.2) * (o.scale || 1));
+      osc.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + dur + 0.03);
+    }
+    function noise(dur, o) {
+      o = o || {};
+      if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const t0 = ctx.currentTime + (o.at || 0);
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noiseBuf;
+      f.type = o.type || 'bandpass';
+      f.frequency.value = o.f || 1000;
+      f.Q.value = o.q || 0.8;
+      env(g, t0, dur, (o.vol || 0.15) * (o.scale || 1));
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.03);
+    }
+    const notes = (list, step, dur, vol, type) => list.forEach((f, i) => tone(f, dur, { at: i * step, vol, type: type || 'triangle' }));
+    const sounds = {
+      click: () => tone(800, 0.03, { type: 'square', vol: 0.05 }),
+      buy: () => { tone(1250, 0.07, { type: 'square', vol: 0.09 }); tone(1900, 0.12, { type: 'square', vol: 0.09, at: 0.07 }); },
+      sell: () => { tone(900, 0.07, { type: 'square', vol: 0.08 }); tone(600, 0.12, { type: 'square', vol: 0.08, at: 0.07 }); },
+      merge: lv => {
+        notes(lv >= 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784], 0.07, 0.16, 0.2);
+        if (lv >= 3) tone(2093, 0.4, { vol: 0.07, at: 0.3 });
+      },
+      reroll: () => { for (let i = 0; i < 3; i++) noise(0.03, { type: 'highpass', f: 2500, vol: 0.12, at: i * 0.045 }); },
+      error: () => tone(150, 0.16, { type: 'square', to: 110, vol: 0.1 }),
+      fight: () => {
+        tone(70, 0.28, { to: 45, vol: 0.5 }); noise(0.1, { type: 'lowpass', f: 400, vol: 0.3 });
+        tone(70, 0.28, { to: 45, vol: 0.5, at: 0.22 }); noise(0.1, { type: 'lowpass', f: 400, vol: 0.3, at: 0.22 });
+      },
+      win: () => notes([523, 659, 784], 0.1, 0.2, 0.2),
+      lose: () => notes([330, 262], 0.16, 0.25, 0.2),
+      victory: () => { notes([523, 659, 784, 1047], 0.12, 0.2, 0.22); tone(1047, 0.6, { vol: 0.18, at: 0.48 }); tone(784, 0.6, { vol: 0.12, at: 0.48 }); },
+      defeat: () => { notes([392, 330, 262, 196], 0.17, 0.3, 0.22); tone(131, 0.7, { vol: 0.18, at: 0.68 }); },
+      heal: () => { tone(660, 0.18, { vol: 0.08 }); tone(990, 0.2, { vol: 0.06, at: 0.06 }); },
+      ward: () => tone(1400, 0.12, { vol: 0.07 }),
+      crack: () => { noise(0.12, { type: 'highpass', f: 3000, vol: 0.2 }); tone(2200, 0.06, { type: 'square', to: 900, vol: 0.06 }); },
+      delay: () => tone(200, 0.2, { to: 120, vol: 0.08 }),
+    };
+    const GAP = { heal: 350, ward: 350, delay: 500, crack: 200 }; // minimum ms between two of the same quiet sound
+    function play(name, arg) {
+      if (muted || !sounds[name] || !ensure()) return;
+      if (GAP[name]) { const now = performance.now(); if (now - (lastAt[name] || 0) < GAP[name]) return; lastAt[name] = now; }
+      sounds[name](arg);
+    }
+    // A hit on the enemy bar (side 0 = yours) or on yours. rel = the hit as a share of the health bar. At most 3 attack sounds per 90 ms.
+    function attack(side, rel, bolt, speedFactor) {
+      if (muted || !ensure()) return;
+      const now = performance.now();
+      if (now - winStart > 90) { winStart = now; winCount = 0; }
+      if (++winCount > 3) return;
+      const quiet = speedFactor >= 4 ? 0.55 : speedFactor >= 2 ? 0.8 : 1;
+      const pitch = (side === 0 ? 1 : 0.72) * (0.92 + Math.random() * 0.16);
+      const sc = quiet * (side === 0 ? 1 : 0.8);
+      if (bolt) { tone(500 * pitch, 0.14, { type: 'sawtooth', to: 1400 * pitch, vol: 0.1, scale: sc }); return; }
+      if (rel >= 0.12) { tone(110 * pitch, 0.22, { to: 45, vol: 0.4, scale: sc }); noise(0.15, { type: 'lowpass', f: 500, vol: 0.25, scale: sc }); }
+      else if (rel >= 0.04) { noise(0.07, { f: 900 * pitch, vol: 0.14, scale: sc }); tone(190 * pitch, 0.09, { type: 'triangle', to: 90 * pitch, vol: 0.16, scale: sc }); }
+      else { noise(0.04, { f: 1800 * pitch, q: 1.2, vol: 0.12, scale: sc }); tone(260 * pitch, 0.05, { type: 'square', to: 140 * pitch, vol: 0.07, scale: sc }); }
+    }
+    return {
+      play, attack,
+      isMuted: () => muted,
+      toggle() {
+        muted = !muted;
+        try { localStorage.setItem('mab-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+        if (!muted) ensure();
+      },
+    };
+  })();
+
+  // Saved in the browser when possible. When the browser blocks storage the tutorial is simply not forced.
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
+    works() { try { localStorage.setItem('warband-probe', '1'); localStorage.removeItem('warband-probe'); return true; } catch (e) { return false; } },
+  };
+  const tutDone = () => store.get('warband-tutorial-done') === '1' || !store.works();
+  const PLURAL = { Human: 'Humans', Elf: 'Elves', Orc: 'Orcs', Dwarf: 'Dwarves', Fae: 'Fae', Clockwork: 'Clockwork' };
+
+  let S;            // game state from the engine
+  let sel = null;   // {kind: 'shop', idx} or {kind: 'unit', uid} (a unit on the board or the bench)
+  let speed = 2;    // fight speed
+  let PV = null;    // live numbers for the board
+  let tiles = [{}, {}];
+  let shopCards = [];
+  let msgTimer = 0;
+  let hoverInfo = null;
+  let tut = null;   // tutorial state {i: index of the current step} while the tutorial runs, otherwise null
+  const TUT = window.Tutorial;
+  const bars = [$('playerBar'), $('enemyBar')];
+
+  // ------------------------------------------------------------ small pieces
+  function say(text, bad) {
+    const m = $('msg');
+    m.textContent = text || '';
+    m.classList.toggle('bad', !!bad);
+    clearTimeout(msgTimer);
+    if (text) msgTimer = setTimeout(() => { m.textContent = ''; }, 4000);
+  }
+
+  function makeTile(d, o) {
+    const t = el('div', 'unit race-' + d.race + (d.cls === 'Dragon' ? ' top' : '') + (o.mirror ? ' mirror' : ''));
+    const icon = () => el('div', 'ico', ICON[d.cls]);
+    if (USE_SPRITES) {
+      const img = new Image();
+      img.className = 'sprite';
+      img.alt = d.name;
+      img.onerror = () => { img.replaceWith(icon()); };
+      img.src = 'sprites/' + d.id + '.png';
+      t.appendChild(img);
+    } else {
+      t.appendChild(icon());
+    }
+    t.appendChild(el('div', 'nm', d.name));
+    const lv = o.level || 1;
+    if (lv > 1) t.appendChild(el('div', 'stars', '★'.repeat(lv)));
+    if (o.badge) t.appendChild(el('div', 'badge', o.badge));
+    return t;
+  }
+
+  function pulse(t, cls, ms) {
+    t.classList.remove(cls);
+    void t.offsetWidth;
+    t.classList.add(cls);
+    setTimeout(() => t.classList.remove(cls), ms);
+  }
+
+  function floatText(side, text, cls) {
+    const f = el('span', 'float ' + cls, text);
+    f.style.left = 12 + Math.random() * 66 + '%';
+    bars[side].querySelector('.floats').appendChild(f);
+    setTimeout(() => f.remove(), 950);
+  }
+
+  function setBar(side, hp, max, shield) {
+    const b = bars[side];
+    b.querySelector('.fill').style.width = Math.max(0, Math.min(1, hp / max)) * 100 + '%';
+    b.querySelector('.shieldbar').style.width = Math.max(0, Math.min(1, shield / max)) * 100 + '%';
+    b.querySelector('.label').textContent = Math.max(0, Math.ceil(hp)) + ' / ' + max + (shield > 0.5 ? '   🛡 ' + Math.ceil(shield) : '');
+  }
+
+  // ------------------------------------------------------------- rendering
+  function renderTop() {
+    $('tRound').textContent = S.round;
+    const pool = $('tPool'); pool.innerHTML = '';
+    S.pool.forEach(r => pool.appendChild(el('span', 'chip race-' + r, r)));
+    $('tGold').textContent = S.gold;
+    $('tWins').textContent = S.wins;
+    $('tTarget').textContent = S.winTarget || G.CFG.winTarget;
+    $('tLives').textContent = '♥'.repeat(Math.max(0, S.lives)) + '♡'.repeat(Math.max(0, G.CFG.startLives - S.lives));
+  }
+
+  function renderGrid(side) {
+    const grid = $(side === 0 ? 'playerGrid' : 'enemyGrid');
+    grid.innerHTML = '';
+    tiles[side] = {};
+    const mirror = side === 1;
+    const interactive = side === 0 && S.phase === 'shop';
+    for (let c = 0; c < G.CELLS; c++) {
+      const slot = el('div', 'slot' + (interactive ? ' live' : ''));
+      if (side === 0) slot.dataset.dropCell = c;
+      slot.style.gridRow = Math.floor(c / 3) + 1;
+      slot.style.gridColumn = mirror ? 3 - (c % 3) : (c % 3) + 1;
+      if (interactive) slot.onclick = () => onSlot(c);
+      grid.appendChild(slot);
+    }
+    const units = side === 0 ? S.board : (S.enemy ? S.enemy.slots : []);
+    for (const u of units) {
+      const d = G.BY_ID[u.id];
+      let badge = null;
+      if (side === 0 && S.phase === 'shop' && PV && PV.units[u.uid]) {
+        const p = PV.units[u.uid];
+        badge = p.heal !== undefined ? (G.BY_ID[u.id].ward ? '🛡' : '+') + fmt(p.heal) : '⚔' + fmt(p.atk);
+      }
+      const t = makeTile(d, { level: u.level, badge, mirror });
+      if (side === 0) { t.dataset.dropCell = u.cell; t.dataset.dragUid = u.uid; }
+      const col = u.cell % 3;
+      t.style.gridRow = Math.floor(u.cell / 3) + 1;
+      t.style.gridColumn = ((mirror ? 3 - (col + d.w) : col) + 1) + ' / span ' + d.w;
+      if (side === 0 && S.phase === 'shop') t.onclick = () => onUnit(u.uid);
+      t.onmouseenter = () => { hoverInfo = { d, unit: u, side, el: t }; renderInfo(); };
+      t.onmouseleave = () => { hoverInfo = null; renderInfo(); };
+      if (side === 0 && sel && sel.kind === 'unit' && sel.uid === u.uid) t.classList.add('selected');
+      tiles[side][u.uid] = t;
+      grid.appendChild(t);
+    }
+  }
+
+  function renderBench() {
+    const bench = $('bench');
+    bench.innerHTML = '';
+    const live = S.phase === 'shop';
+    bench.classList.toggle('idle', !live);
+    S.bench.forEach((u, slot) => {
+      const cell = el('div', 'bslot' + (live ? ' live' : ''));
+      cell.dataset.dropBench = slot;
+      if (live) cell.onclick = () => onBenchSlot(slot);
+      if (u) {
+        const d = G.BY_ID[u.id];
+        const t = makeTile(d, { level: u.level });
+        t.dataset.dragUid = u.uid;
+        t.onclick = e => { e.stopPropagation(); if (live) onBenchSlot(slot); };
+        t.onmouseenter = () => { hoverInfo = { d, unit: u, side: 0, el: t }; renderInfo(); };
+        t.onmouseleave = () => { hoverInfo = null; renderInfo(); };
+        if (sel && sel.kind === 'unit' && sel.uid === u.uid) t.classList.add('selected');
+        cell.appendChild(t);
+      }
+      bench.appendChild(cell);
+    });
+  }
+
+  function renderBars() {
+    const max = G.maxHp(S.round);
+    const b = S.battle;
+    for (let si = 0; si < 2; si++) {
+      if (b) setBar(si, b.sides[si].hp, b.sides[si].max, b.sides[si].shield);
+      else setBar(si, max, max, PV && si === 0 ? PV.shield : 0);
+      const slow = b ? b.sides[si].team.slowed : 0;
+      bars[si].querySelector('.slowtag').textContent = slow > 0.005 ? '🐌 slowed ' + Math.round(slow * 100) + '%' : '';
+      if (b) b.sides[si].units.forEach(x => { const t = tiles[si][x.uid]; if (t) t.classList.toggle('hexed', x.hex > 0); });
+    }
+    const rl = $('raceline');
+    if (PV && S.phase === 'shop' && S.board.length) {
+      const bits = S.pool.filter(r => PV.count[r] > 0).map(r => PV.count[r] + ' ' + (PV.count[r] === 1 ? r : PLURAL[r]));
+      rl.textContent = 'On your board: ' + bits.join(', ') + (PV.fullRace ? ' · Full ' + PV.fullRace + ' board!' : '') + '.';
+      rl.classList.remove('hidden');
+    } else if (S.phase === 'shop') { rl.textContent = '\u00a0'; rl.classList.remove('hidden'); }   // keep the line's space so the page does not jump when you buy the first unit
+    else rl.classList.add('hidden');
+    const foe = $('foeline');
+    if (PV && S.phase === 'shop' && (PV.foeSlow > 0 || PV.foeDelay > 0 || (PV.hexes && PV.hexes.length))) {
+      const bits = [];
+      if (PV.foeSlow > 0) bits.push('enemies ' + Math.round(PV.foeSlow * 100) + '% slower');
+      if (PV.foeDelay > 0) bits.push('their first attacks ' + fmt(PV.foeDelay) + 's later');
+      if (PV.hexes && PV.hexes.length) bits.push(PV.hexes.length + ' hexed enemy unit' + (PV.hexes.length > 1 ? 's' : ''));
+      foe.textContent = 'Your Fae at battle start: ' + bits.join(', ') + '.';
+      foe.classList.remove('hidden');
+    } else if (S.phase === 'shop' && S.pool.includes('Fae')) { foe.textContent = '\u00a0'; foe.classList.remove('hidden'); }
+    else foe.classList.add('hidden');
+  }
+
+  function renderShop() {
+    const box = $('shop');
+    box.innerHTML = '';
+    shopCards = [];
+    box.classList.toggle('hidden', S.phase !== 'shop');
+    const oddsEl = $('odds');
+    oddsEl.classList.toggle('hidden', S.phase !== 'shop');
+    if (S.phase !== 'shop') return;
+    oddsEl.textContent = 'Chance per shop slot: ' + G.tierOdds(S.round)
+      .map((p, i) => (p > 0 ? 'T' + (i + 1) + ' ' + p + '%' : null)).filter(Boolean).join(' · ') + '. A unit costs as many gold as its tier.';
+    S.shop.forEach((id, idx) => {
+      const card = el('div', 'card');
+      shopCards.push(card);
+      if (!id) { card.classList.add('empty'); card.appendChild(el('div', 'meta', 'Sold out')); box.appendChild(card); return; }
+      const d = G.BY_ID[id];
+      if (S.gold < d.cost) card.classList.add('poor');
+      if (sel && sel.kind === 'shop' && sel.idx === idx) card.classList.add('selected');
+      card.appendChild(makeTile(d, {}));
+      const meta = el('div', 'meta');
+      meta.innerHTML = '<b></b><br><span></span><br><span class="cost"></span>';
+      meta.querySelector('b').textContent = d.name;
+      meta.querySelectorAll('span')[0].textContent = d.race + ' ' + d.cls + ' · T' + d.tier + (d.mono ? ' · ★ Mono' : '');
+      meta.querySelector('.cost').textContent = '🪙 ' + d.cost;
+      if (G.completesMerge(S, id)) meta.appendChild(el('div', 'mergetag', '★ completes a merge'));
+      card.appendChild(meta);
+      card.dataset.dragShop = idx;
+      card.onclick = () => onShop(idx);
+      card.onmouseenter = () => { hoverInfo = { d, unit: null, side: -1, el: card }; renderInfo(); };
+      card.onmouseleave = () => { hoverInfo = null; renderInfo(); };
+      box.appendChild(card);
+    });
+  }
+
+  function renderControls() {
+    const c = $('controls');
+    c.innerHTML = '';
+    if (S.phase === 'shop') {
+      const ta = allowOf();
+      const reroll = el('button', '', 'Reroll (1🪙)');
+      reroll.disabled = S.gold < G.CFG.rerollCost || (ta && !ta.reroll);
+      if (ta && ta.reroll && !ta.shop) reroll.classList.add('tut-hl');
+      reroll.onclick = () => act(G.reroll(S), 'reroll');
+      const at = sel && sel.kind === 'unit' ? G.locate(S, sel.uid) : null;
+      const selUnit = at ? at.unit : null;
+      const sellBtn = el('button', '', selUnit ? 'Sell (+' + G.sellValue(selUnit) + '🪙)' : 'Sell');
+      sellBtn.disabled = !selUnit || (ta && !ta.sell);
+      if (ta && ta.sell && selUnit) sellBtn.classList.add('tut-hl');
+      sellBtn.onclick = () => {
+        if (!selUnit || sellBtn.disabled) return;
+        act(G.sell(S, selUnit.uid));
+      };
+      const fight = el('button', 'primary', 'Fight!');
+      fight.disabled = (ta && !ta.fight);
+      if (ta && ta.fight) fight.classList.add('tut-hl');
+      fight.onclick = startFight;
+      const lock = el('button', S.locked ? 'on' : '', S.locked ? '🔒 Locked' : '🔓 Lock');
+      lock.title = S.locked ? 'The shop keeps these cards after the next fight. Click to unlock.' : 'Keep these cards: the shop will not reroll after the next fight.';
+      lock.onclick = () => { SFX.play('click'); act(G.toggleLock(S)); };
+      if (tut) c.append(reroll, sellBtn, fight); else c.append(reroll, lock, sellBtn, fight);
+    } else if (S.phase === 'battle') {
+      [1, 2, 4].forEach(sp => {
+        const b = el('button', sp === speed ? 'on' : '', '×' + sp);
+        b.onclick = () => { speed = sp; renderControls(); };
+        c.appendChild(b);
+      });
+      const skip = el('button', '', 'Skip');
+      skip.onclick = skipFight;
+      c.appendChild(skip);
+    }
+  }
+
+  // Words in unit texts that get a hover/tap explanation (the first time each one shows up in the info box).
+  const KW = [
+    ['different race', 'Every race on your board counts once, however many units of it you have.'],
+    ['Full \\w+ board', 'A full board: all 6 cells are filled and every unit is of that race.'],
+    ['adjacent', 'The units directly left, right, above or below. Corners do not count.'],
+    ['diagonal', 'The units touching at a corner.'],
+    ['wind-up|wound up', 'Attack speed that grows every second of the fight (at most +200%).'],
+    ['enrages?', 'Gains +1 attack again and again during the fight.'],
+    ['hexes|hexed', 'A hexed enemy unit attacks slower for the whole fight.'],
+    ['delays?', 'Pushes the next enemy attacks back. One unit can be delayed at most 2s per fight.'],
+    ['stolen speed', 'The Spirit Stag attacks faster, based on how much Fae slow the enemy team.'],
+    ['health bar', 'The bar your whole army shares. When it is empty you lose the fight.'],
+    ['shields?', 'Soaks up damage before the health bar does.'],
+  ];
+  const KWRE = new RegExp('(' + KW.map(k => k[0]).join('|') + ')', 'i');
+  function rich(parent, text, used) {
+    let rest = text;
+    while (rest) {
+      const m = KWRE.exec(rest);
+      if (!m) { parent.appendChild(document.createTextNode(rest)); return; }
+      if (m.index) parent.appendChild(document.createTextNode(rest.slice(0, m.index)));
+      const k = KW.find(x => new RegExp('^(' + x[0] + ')$', 'i').test(m[0]));
+      if (k && !used.has(k)) {
+        used.add(k);
+        const sp = el('span', 'kw', m[0]);
+        sp.tabIndex = 0;
+        sp.dataset.tip = k[1];
+        parent.appendChild(sp);
+      } else parent.appendChild(document.createTextNode(m[0]));
+      rest = rest.slice(m.index + m[0].length);
+    }
+  }
+  // One floating tip for all keywords (hover on a mouse, tap on a phone).
+  const kwTip = el('div', 'kwtip hidden');
+  document.body.appendChild(kwTip);
+  function showKw(t) {
+    kwTip.textContent = t.dataset.tip;
+    kwTip.classList.remove('hidden');
+    const r = t.getBoundingClientRect(), w = kwTip.offsetWidth, h = kwTip.offsetHeight;
+    kwTip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    kwTip.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + 'px';
+  }
+  document.addEventListener('mouseover', e => { const t = e.target.closest && e.target.closest('.kw'); if (t) showKw(t); });
+  document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest('.kw')) kwTip.classList.add('hidden'); });
+  document.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('.kw');
+    if (t) showKw(t); else kwTip.classList.add('hidden');
+  });
+
+  function infoBox(d, unit, side) {
+    const box = $('info');
+    box.innerHTML = '';
+    kwTip.classList.add('hidden');
+    box.appendChild(el('h3', '', d.name));
+    box.appendChild(el('div', 'sub', d.race + ' ' + d.cls + ' · Tier ' + d.tier + ' · Cost ' + d.cost + (d.w === 2 ? ' · 2 cells' : '')));
+    if (d.mono) box.appendChild(el('div', 'monotag', '★ Mono: grows with every ' + d.race + ' on your board'));
+
+    // The numbers first: what this unit does right now on your board (or its base numbers).
+    const live = el('div', 'live');
+    const p = unit && side === 0 && S.phase === 'shop' && PV ? PV.units[unit.uid] : null;
+    const addLive = t => live.appendChild(el('div', '', t));
+    if (p) {
+      const line = p.heal !== undefined
+        ? (d.ward ? 'Adds a shield of ' : 'Heals ') + fmt(p.heal) + ' every ' + fmt(p.interval) + 's'
+        : 'Attack ' + fmt(p.atk) + ' every ' + fmt(p.interval) + 's';
+      addLive('Right now: ' + line + (p.speed > 1.001 ? ' (speed ×' + fmt(p.speed) + ')' : ''));
+      if (p.wind > 0) addLive('Winds up +' + Math.round(p.wind * 100) + '% speed per second');
+      if (p.atkPct > 0) addLive('Orc buffs: +' + Math.round(p.atkPct * 100) + '% attack');
+      if (/knight|shieldbearer|magmadrake/.test(d.id) && PV.shield > 0) addLive('Your team\'s battle-start shield: ' + fmt(PV.shield));
+      if (d.mono && PV.fullRace === d.race) addLive('Full ' + d.race + ' board bonus is active!');
+    } else {
+      const bar = G.maxHp(S ? S.round : 1);
+      addLive(d.kind === 'heal' ? (d.ward ? 'Adds a shield every ' : 'Heals every ') + d.interval + 's'
+        : d.pct ? 'Hits for ' + Math.round(d.pct * 100) + '% of the bar (about ' + fmt(d.pct * bar) + ' this round) every ' + d.interval + 's'
+        : 'Base attack ' + d.atk + ' every ' + d.interval + 's');
+    }
+    if (unit) {
+      const where = G.locate(S, unit.uid);
+      if (where && where.zone === 'bench') addLive('On the bench: does not fight.');
+    }
+    box.appendChild(live);
+
+    const curLv = unit ? unit.level : 1;
+    const used = new Set();
+    d.lv.forEach((t, i) => {
+      const row = el('p', 'lvline' + (i + 1 === curLv ? ' cur' : '') + (i + 1 > curLv ? ' next' : ''));
+      row.appendChild(el('b', '', 'Lv ' + (i + 1) + ' '));
+      rich(row, t, used);
+      box.appendChild(row);
+    });
+    box.appendChild(el('div', 'lvnote', (d.kind === 'heal' ? '' : 'Level 2 doubles this unit\'s own attack, level 3 multiplies it by ' + G.MULT[3] + '. ') + 'Higher levels keep every effect of the lower ones.'));
+    if (unit) {
+      const lv = unit.level;
+      let tip = 'Level ' + lv + '. ';
+      if (lv >= G.MAX_LEVEL) tip += 'Max level.';
+      else if (side === 0) {
+        const own = S.board.concat(S.bench.filter(Boolean)).filter(x => x.id === unit.id && x.level === lv).length;
+        tip += 'Three level ' + lv + ' copies merge into level ' + (lv + 1) + ' (you have ' + own + ', bench included).';
+      }
+      box.appendChild(el('p', 'tip', tip));
+    }
+  }
+
+  // On small screens the info box would sit far below the board, so it floats next to the unit instead.
+  const smallScreen = () => window.matchMedia('(max-width: 720px)').matches;
+  function placeInfo(anchor, show) {
+    const box = $('info');
+    if (!smallScreen()) {
+      box.classList.remove('infofloat', 'off');
+      box.style.left = box.style.top = box.style.maxHeight = box.style.width = box.style.pointerEvents = '';
+      // In the shop phase the info sits right next to your army (where the enemy shows up in a fight).
+      const target = S.phase === 'shop' ? $('infoSlot') : $('lower');
+      if (box.parentElement !== target) target.appendChild(box);
+      $('infoSlot').classList.toggle('on', target === $('infoSlot'));
+      box.classList.toggle('sidepanel', target === $('infoSlot'));
+      return;
+    }
+    box.classList.remove('sidepanel');
+    $('infoSlot').classList.remove('on');
+    if (box.parentElement !== $('lower')) $('lower').appendChild(box);
+    box.classList.add('infofloat');
+    if (!show || !anchor || !anchor.isConnected) { box.classList.add('off'); return; }
+    box.classList.remove('off');
+    const vw = window.innerWidth, vh = window.innerHeight, m = 8;
+    const w = Math.min(340, vw - 2 * m);
+    box.style.width = w + 'px';
+    box.style.maxHeight = '';
+    const r = anchor.getBoundingClientRect();
+    const spaceAbove = r.top - m * 2, spaceBelow = vh - r.bottom - m * 2;
+    const h = box.offsetHeight;
+    let top, maxH;
+    if (h <= spaceBelow || spaceBelow >= spaceAbove) { top = r.bottom + m; maxH = Math.max(120, vh - top - m); }
+    else { maxH = Math.max(120, Math.min(h, spaceAbove)); top = Math.max(m, r.top - m - Math.min(h, maxH)); }
+    box.style.maxHeight = maxH + 'px';
+    box.style.top = top + 'px';
+    box.style.left = Math.max(m, Math.min(vw - w - m, r.left + r.width / 2 - w / 2)) + 'px';
+    box.style.pointerEvents = hoverInfo && window.matchMedia('(hover: hover)').matches ? 'none' : '';
+  }
+
+  function renderInfo() {
+    if (hoverInfo) { infoBox(hoverInfo.d, hoverInfo.unit, hoverInfo.side); placeInfo(hoverInfo.el, true); return; }
+    if (sel && sel.kind === 'unit') {
+      const at = G.locate(S, sel.uid);
+      if (at) { infoBox(G.BY_ID[at.unit.id], at.unit, 0); placeInfo(document.querySelector('#playerGrid .selected, #bench .selected'), true); return; }
+    }
+    if (sel && sel.kind === 'shop' && S.shop[sel.idx]) { infoBox(G.BY_ID[S.shop[sel.idx]], null, -1); placeInfo(document.querySelector('#shop .selected'), true); return; }
+    const box = $('info');
+    box.innerHTML = '';
+    box.appendChild(el('p', 'tip', 'Hover or click a unit or a shop card to read what it does.'));
+    placeInfo(null, false);
+  }
+  window.addEventListener('resize', () => { if (S) renderInfo(); });
+
+  function renderAll() {
+    tutCheck();
+    PV = S.phase === 'shop' ? G.preview(S.board, S.round) : null;
+    const inFight = S.phase !== 'shop';
+    $('enemySide').classList.toggle('hidden', !inFight);
+    $('vs').classList.toggle('hidden', !inFight);
+    document.querySelector('.benchbox').classList.toggle('hidden', inFight);
+    $('enemyTitle').textContent = 'Enemy warband' + (inFight && S.enemy ? ' (' + S.enemy.races.join(', ') + ')' : '');
+    renderTop();
+    renderGrid(0);
+    renderGrid(1);
+    renderBench();
+    renderBars();
+    renderShop();
+    renderControls();
+    renderInfo();
+    if (sel && sel.kind === 'shop' && shopCards[sel.idx]) shopCards[sel.idx].classList.add('selected');
+    tutRender();
+  }
+
+  // ------------------------------------------------------------- tutorial
+  // The tutorial is a scripted run (tutorial.js). Each step allows only some actions; everything else is greyed out or refused.
+  function curStep() { return tut ? TUT.STEPS[tut.i] : null; }
+  function allowOf() { if (!tut) return null; const st = curStep(); return (st && st.allow) || {}; }   // null outside the tutorial
+  const shopOk = (a, idx) => a.shop === 'any' || (Array.isArray(a.shop) && a.shop.indexOf(idx) >= 0);
+  function toOk(a, where, n) {
+    const t = a.to;
+    if (!t) return false;
+    if (t === 'any') return true;
+    if (where === 'bench') return t === 'bench';
+    if (t === 'board') return true;
+    return typeof t === 'function' && t(S).indexOf(n) >= 0;
+  }
+  const unitOk = (a, d) => a.units === true || (Array.isArray(a.units) && a.units.indexOf(d.id) >= 0);
+  function tutNo(text) {
+    say(text || 'Do what the tutorial asks first.', true);
+    SFX.play('error');
+    const t = $('tut');
+    t.classList.remove('nudge'); void t.offsetWidth; t.classList.add('nudge');
+  }
+  function tutCheck() {
+    let guard = 0;
+    while (tut && guard++ < 20) {
+      const st = curStep();
+      if (st && st.kind === 'do' && S.phase === 'shop' && st.done(S)) { tut.i++; continue; }
+      break;
+    }
+  }
+  function tutRender() {
+    const box = $('tut');
+    $('btnNew').classList.toggle('hidden', !!tut);
+    const st = curStep();
+    if (!tut || !st) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    box.querySelector('.tuttag').textContent = 'Tutorial · round ' + st.round + ' of ' + TUT.STEPS[TUT.STEPS.length - 1].round;
+    box.querySelector('.tuttitle').textContent = st.title;
+    box.querySelector('.tuttext').textContent = S.phase === 'battle' && st.battleText ? st.battleText : st.text;
+    $('tutNext').classList.toggle('hidden', !(st.kind === 'info' && S.phase === 'shop'));
+    if (S.phase !== 'shop') return;
+    // Grey out what is not allowed and highlight what the step asks for.
+    const a = allowOf();
+    shopCards.forEach((c, i) => {
+      if (c.classList.contains('empty')) return;
+      if (!shopOk(a, i)) c.classList.add('tut-off');
+      else if (Array.isArray(a.shop)) c.classList.add('tut-hl');
+    });
+    if (a.to && a.to !== 'any' && a.to !== 'board') {
+      document.querySelectorAll('#playerGrid .slot[data-drop-cell]').forEach(e => { if (toOk(a, 'cell', +e.dataset.dropCell)) e.classList.add('tut-hl'); });
+      document.querySelectorAll('#bench .bslot').forEach(e => { if (a.to === 'bench' && !e.querySelector('.unit')) e.classList.add('tut-hl'); });
+    }
+    if (Array.isArray(a.units)) {
+      const all = S.board.concat(S.bench.filter(Boolean));
+      document.querySelectorAll('#playerGrid [data-drag-uid], #bench [data-drag-uid]').forEach(e => {
+        const u = all.find(x => String(x.uid) === e.dataset.dragUid);
+        if (u && a.units.indexOf(u.id) >= 0) e.classList.add('tut-hl'); else e.classList.add('tut-off');
+      });
+    }
+  }
+  $('tutNext').onclick = () => { if (!tut) return; SFX.play('click'); tut.i++; renderAll(); };
+
+  // ----------------------------------------------------------- interaction
+  function act(r, kind) {
+    if (r && r.msg) say(r.msg, !r.ok);
+    if (r && r.ok) sel = null;
+    if (r && !r.ok) SFX.play('error');
+    else if (r) {
+      const m = r.msg || '';
+      const k = kind || (/merged into a level \d/.test(m) ? 'merge' : /^Bought/.test(m) ? 'buy' : /^Sold/.test(m) ? 'sell' : null);
+      if (k === 'merge') SFX.play('merge', +(/level (\d)/.exec(m) || [0, 2])[1]);
+      else if (k) SFX.play(k);
+    }
+    renderAll();
+  }
+
+  function onShop(idx) {
+    if (S.phase !== 'shop' || !S.shop[idx]) return;
+    const ta = allowOf();
+    if (ta && !shopOk(ta, idx)) { tutNo(ta.shop ? 'Buy the highlighted unit.' : ''); return; }
+    if (sel && sel.kind === 'shop' && sel.idx === idx) {
+      if (ta && !ta.auto) { tutNo('Drag the card onto a highlighted spot (or click the spot).'); return; }
+      act(G.buyAuto(S, idx)); return;
+    }
+    sel = { kind: 'shop', idx };
+    renderAll();
+  }
+
+  function onSlot(cell) {
+    if (!sel) return;
+    const ta = allowOf();
+    if (sel.kind === 'shop') {
+      if (ta && !toOk(ta, 'cell', cell)) { tutNo('Not there: use a highlighted spot.'); return; }
+      act(G.buyToCell(S, sel.idx, cell));
+    } else {
+      if (ta && !ta.move) { tutNo(); return; }
+      act(G.moveUnit(S, sel.uid, 'board', cell));
+    }
+  }
+
+  function onUnit(uid) {
+    const u = S.board.find(x => x.uid === uid);
+    if (!u) return;
+    const ta = allowOf();
+    if (!sel) {
+      if (ta && !unitOk(ta, G.BY_ID[u.id])) { tutNo(); return; }
+      sel = { kind: 'unit', uid }; renderAll(); return;
+    }
+    if (sel.kind === 'shop') {
+      if (ta && !toOk(ta, 'cell', u.cell)) { tutNo('Not there: use a highlighted spot.'); return; }
+      act(G.buyToCell(S, sel.idx, u.cell)); return;
+    }
+    if (sel.uid === uid) { sel = null; renderAll(); return; }
+    if (ta && !ta.move) { tutNo(); return; }
+    act(G.moveUnit(S, sel.uid, 'board', u.cell));
+  }
+
+  function onBenchSlot(slot) {
+    const u = S.bench[slot];
+    const ta = allowOf();
+    if (!sel) {
+      if (u) {
+        if (ta && !unitOk(ta, G.BY_ID[u.id])) { tutNo(); return; }
+        sel = { kind: 'unit', uid: u.uid }; renderAll();
+      }
+      return;
+    }
+    if (sel.kind === 'shop') {
+      if (ta && !toOk(ta, 'bench', slot)) { tutNo('Not there: use a highlighted spot.'); return; }
+      act(G.buyToBench(S, sel.idx, slot)); return;
+    }
+    if (u && sel.uid === u.uid) { sel = null; renderAll(); return; }
+    if (ta && !ta.move) { tutNo(); return; }
+    act(G.moveUnit(S, sel.uid, 'bench', slot));
+  }
+
+
+  // ------------------------------------------------------------ drag and drop
+  // Drag a shop card (buy) or one of your units (move or swap) onto a board cell or a bench slot. A short press without moving is
+  // still a normal click, so clicking and double-clicking keep working. Pointer events make this work with mouse, touch and pen.
+  let drag = null;
+  function dropTargetAt(x, y) {
+    const hit = document.elementFromPoint(x, y);
+    return hit ? hit.closest('[data-drop-cell],[data-drop-bench]') : null;
+  }
+  function endDrag() {
+    if (!drag) return;
+    if (drag.ghost) drag.ghost.remove();
+    if (drag.src) drag.src.classList.remove('dragsrc');
+    if (drag.over) drag.over.classList.remove('dropover');
+    document.body.classList.remove('dragging');
+    drag = null;
+  }
+  document.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !S || S.phase !== 'shop' || $('overlay').classList.contains('hidden') === false) return;
+    const src = e.target.closest('[data-drag-shop],[data-drag-uid]');
+    if (!src) return;
+    const ta = allowOf();
+    if (ta) {
+      if (src.dataset.dragShop !== undefined ? !shopOk(ta, +src.dataset.dragShop) : !ta.move) return;
+    }
+    drag = { src, x: e.clientX, y: e.clientY, active: false, ghost: null, over: null };
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.active) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+      drag.active = true;
+      if (drag.src.dataset.dragShop !== undefined) {
+        const idx = +drag.src.dataset.dragShop;
+        if (!S.shop[idx]) { endDrag(); return; }
+        sel = { kind: 'shop', idx };
+      } else {
+        const mine = S.board.concat(S.bench.filter(Boolean)).find(x => String(x.uid) === drag.src.dataset.dragUid);
+        if (!mine) { endDrag(); return; }
+        sel = { kind: 'unit', uid: mine.uid };
+      }
+      const tile = drag.src.classList.contains('unit') ? drag.src : drag.src.querySelector('.unit');
+      const ghost = tile.cloneNode(true);
+      ghost.className += ' ghost';
+      ghost.style.width = ghost.style.height = '64px';
+      ghost.style.setProperty('--cell', '64px');
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      drag.src.classList.add('dragsrc');
+      document.body.classList.add('dragging');
+    }
+    e.preventDefault();
+    drag.ghost.style.left = e.clientX - 32 + 'px';
+    drag.ghost.style.top = e.clientY - 32 + 'px';
+    const over = dropTargetAt(e.clientX, e.clientY);
+    if (over !== drag.over) {
+      if (drag.over) drag.over.classList.remove('dropover');
+      if (over) over.classList.add('dropover');
+      drag.over = over;
+    }
+  }, { passive: false });
+  document.addEventListener('pointerup', e => {
+    if (!drag) return;
+    if (!drag.active) { drag = null; return; }
+    const target = dropTargetAt(e.clientX, e.clientY);
+    endDrag();
+    // The click that follows a drag must not do anything.
+    const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+    document.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => document.removeEventListener('click', swallow, true), 0);
+    if (!target || S.phase !== 'shop') { sel = null; renderAll(); return; }
+    if (target.dataset.dropBench !== undefined) onBenchSlot(+target.dataset.dropBench);
+    else {
+      const cell = +target.dataset.dropCell;
+      const there = G.unitAt(S.board, cell);
+      if (there) onUnit(there.uid); else onSlot(cell);
+    }
+  });
+  document.addEventListener('pointercancel', () => { if (drag && drag.active) { sel = null; renderAll(); } endDrag(); });
+
+  // ---------------------------------------------------------------- fights
+  function startFight() {
+    const ta = allowOf();
+    if (ta && !ta.fight) { tutNo(); return; }
+    const r = G.startBattle(S);
+    if (!r.ok) { say(r.msg, true); return; }
+    sel = null; hoverInfo = null;
+    say('');
+    SFX.play('fight');
+    renderAll();
+    runLoop();
+  }
+
+  function handleEvents(evs) {
+    for (const e of evs) {
+      const t = tiles[e.side][e.uid];
+      if (e.kind === 'attack') {
+        if (t) pulse(t, e.side === 0 ? 'atk-r' : 'atk-l', 280);
+        floatText(1 - e.side, '-' + Math.round(e.value), e.bolt ? 'bolt' : 'dmg');
+        SFX.attack(e.side, e.value / G.maxHp(S.round), e.bolt, speed);
+        const b = bars[1 - e.side];
+        b.classList.add('hit');
+        setTimeout(() => b.classList.remove('hit'), 90);
+      } else if (e.kind === 'heal') {
+        if (t) pulse(t, 'glow', 480);
+        floatText(e.side, '+' + Math.round(e.value), 'heal');
+        SFX.play('heal');
+      } else if (e.kind === 'buff') {
+        if (t) pulse(t, 'glow', 480);
+        if (e.pct) floatText(e.side, '+' + Math.round(e.value * 100) + '%', 'ward');
+      } else if (e.kind === 'ward') {
+        if (t) pulse(t, 'glow', 480);
+        floatText(e.side, '+' + Math.round(e.value), 'ward');
+        SFX.play('ward');
+      } else if (e.kind === 'shieldbreak') {
+        floatText(e.side, 'Shield broke!', 'dmg');
+        SFX.play('crack');
+      } else if (e.kind === 'delay') {
+        floatText(e.side, 'Delayed ' + (Math.round(e.value * 10) / 10) + 's', 'delay');
+        SFX.play('delay');
+      }
+    }
+  }
+
+  function runLoop() {
+    let last = performance.now();
+    let acc = 0;
+    function frame(now) {
+      const b = S.battle;
+      if (S.phase !== 'battle' || !b) return;
+      acc += Math.min(0.1, (now - last) / 1000) * speed;
+      last = now;
+      let steps = 0;
+      while (acc >= G.CFG.tick && !b.over && steps++ < 12) {
+        acc -= G.CFG.tick;
+        handleEvents(b.step(G.CFG.tick));
+      }
+      renderBars();
+      if (b.over) { endFight(450); return; }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function skipFight() {
+    const b = S.battle;
+    if (!b || S.phase !== 'battle') return;
+    G.runBattle(b);
+    renderBars();
+    endFight(150);
+  }
+
+  let ending = false;
+  function endFight(delay) {
+    if (ending) return;
+    ending = true;
+    setTimeout(() => {
+      ending = false;
+      if (S.phase !== 'battle') return;
+      G.finishBattle(S);
+      renderTop();
+      renderControls();
+      showOverlay();
+    }, delay);
+  }
+
+  function showTutOverlay() {
+    const o = $('overlay');
+    o.innerHTML = '';
+    const card = el('div', 'ocard');
+    const r = S.lastResult, st = curStep();
+    const good = st && st.loseText ? r === 'loss' : r === 'win';   // the fight went as the script wants
+    SFX.play(S.phase === 'won' ? 'victory' : r === 'win' ? 'win' : r === 'loss' ? 'lose' : 'click');
+    let title, sub, label, handler, altLabel, altHandler;
+    if (S.phase === 'won') {
+      title = '🎓 Tutorial complete!';
+      sub = 'You know the basics. A real run is 10 wins before your 5 lives are gone, with its own random set of 3 races. Good luck!';
+      label = 'To the main menu';
+      handler = () => { store.set('warband-tutorial-done', '1'); o.classList.add('hidden'); showMenu(); };
+    } else if (S.phase === 'lost') {
+      // All lives gone: the tutorial is lost. Play is unlocked anyway; the player has seen what a fight is.
+      title = '🎓 Tutorial lost';
+      sub = 'Aww, you lost.. You can replay the tutorial if you need some more training, or jump straight into a real game if you feel ready.';
+      label = 'Replay tutorial';
+      handler = () => { o.classList.add('hidden'); startTutorial(); };
+      altLabel = 'Play a real game';
+      altHandler = () => { store.set('warband-tutorial-done', '1'); o.classList.add('hidden'); newRun(); };
+    } else {
+      title = r === 'win' ? 'Victory!' : r === 'loss' ? 'Defeat' : 'Draw';
+      if (good) {
+        sub = (r === 'win' ? st.winText : st.loseText) + (r === 'loss' ? ' Lives left: ' + S.lives + '.' : '');
+        label = 'Next round';
+        handler = () => {
+          tut.i++; sel = null; G.nextRound(S); o.classList.add('hidden');
+          say('Round ' + S.round + ': ' + S.gold + ' gold to spend.');
+          renderAll();
+        };
+      } else {
+        // Not the result the script wants: the round is replayed. A lost life stays lost.
+        sub = (r === 'loss' ? '' : 'A draw, so nothing counts. ') + 'Tip: spend all your gold, put your units on the board and place them next to each other.';
+        label = 'Try again';
+        handler = () => {
+          S.round--; sel = null; G.nextRound(S); o.classList.add('hidden');
+          say('Round ' + S.round + ': ' + S.gold + ' gold to spend.');
+          renderAll();
+        };
+      }
+    }
+    card.appendChild(el('h2', '', title));
+    card.appendChild(el('p', '', sub));
+    const btn = el('button', 'primary', label);
+    btn.onclick = handler;
+    card.appendChild(btn);
+    if (altLabel) { const b2 = el('button', '', altLabel); b2.style.marginLeft = '8px'; b2.onclick = altHandler; card.appendChild(b2); }
+    o.appendChild(card);
+    o.classList.remove('hidden');
+  }
+
+  function showOverlay() {
+    if (tut) { showTutOverlay(); return; }
+    const o = $('overlay');
+    o.innerHTML = '';
+    const card = el('div', 'ocard');
+    const r = S.lastResult;
+    SFX.play(S.phase === 'won' ? 'victory' : S.phase === 'lost' ? 'defeat' : r === 'win' ? 'win' : r === 'loss' ? 'lose' : 'click');
+    let title, sub, label, handler, endOfRun = false;
+    if (S.phase === 'won') {
+      title = '🏆 Victory!';
+      sub = 'You won ' + S.wins + ' battles and finished the run in round ' + S.round + '.';
+      label = 'Play again'; handler = newRun; endOfRun = true;
+    } else if (S.phase === 'lost') {
+      title = '💀 Defeated';
+      sub = 'Your last life is gone. You reached round ' + S.round + ' with ' + S.wins + ' wins.';
+      label = 'Play again'; handler = newRun; endOfRun = true;
+    } else {
+      title = r === 'win' ? 'Victory!' : r === 'loss' ? 'Defeat' : 'Draw';
+      sub = r === 'win' ? 'Wins: ' + S.wins + ' / ' + (S.winTarget || G.CFG.winTarget)
+        : r === 'loss' ? 'You lose a life. Lives left: ' + S.lives
+        : 'Nobody wins and nobody loses a life.';
+      label = 'Next round';
+      handler = () => { sel = null; G.nextRound(S); o.classList.add('hidden'); say('Round ' + S.round + ': ' + S.gold + ' gold to spend.'); renderAll(); };
+    }
+    card.appendChild(el('h2', '', title));
+    card.appendChild(el('p', '', sub));
+    const btn = el('button', 'primary', label);
+    btn.onclick = handler;
+    card.appendChild(btn);
+    if (endOfRun) { const m = el('button', '', 'Main menu'); m.style.marginLeft = '8px'; m.onclick = () => { SFX.play('click'); showMenu(); }; card.appendChild(m); }
+    o.appendChild(card);
+    o.classList.remove('hidden');
+  }
+
+  // The message at the start of a run: which races are in play.
+  function showIntro() {
+    const o = $('overlay');
+    o.innerHTML = '';
+    const card = el('div', 'ocard');
+    card.appendChild(el('h2', '', 'A new run begins'));
+    card.appendChild(el('p', '', 'Only these ' + S.pool.length + ' races will appear in your shop this run:'));
+    const list = el('div', 'racelist');
+    S.pool.forEach(r => {
+      const row = el('div');
+      row.appendChild(el('span', 'chip race-' + r, r));
+      row.appendChild(document.createTextNode(' ' + (G.RACE_INFO[r] || '')));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+    card.appendChild(el('p', 'fine', 'Enemy warbands follow the same rule: each one draws from up to ' + G.CFG.poolSize + ' races, which can be different from yours.'));
+    const btn = el('button', 'primary', 'Begin');
+    btn.onclick = () => { SFX.play('click'); o.classList.add('hidden'); };
+    card.appendChild(btn);
+    o.appendChild(card);
+    o.classList.remove('hidden');
+  }
+
+  function newRun() {
+    tut = null;
+    S = G.newGame();
+    sel = null; hoverInfo = null; ending = false;
+    say('A new run begins. Buy your first units!');
+    renderAll();
+    showIntro();
+  }
+
+  // ------------------------------------------------------------- main menu
+  function startTutorial() {
+    S = G.newGame(Math.random, TUT.options());
+    tut = { i: 0 };
+    sel = null; hoverInfo = null; ending = false;
+    say('');
+    renderAll();
+  }
+  function showMenu() {
+    tut = null;
+    $('overlay').classList.add('hidden');
+    $('help').classList.add('hidden');
+    const done = tutDone();
+    $('menuPlay').disabled = !done;
+    $('menuTut').classList.toggle('btnpulse', !done);
+    $('menuTut').textContent = 'Tutorial';
+    $('menuNote').textContent = done ? '' : 'Finish the tutorial once to unlock Play.';
+    $('menu').classList.remove('hidden');
+    tutRender();
+  }
+  $('menuPlay').onclick = () => { if (!tutDone()) return; SFX.play('click'); $('menu').classList.add('hidden'); newRun(); };
+  $('menuTut').onclick = () => { SFX.play('click'); $('menu').classList.add('hidden'); startTutorial(); };
+  let menuTimer = 0;
+  const btnMenu = $('btnMenu');
+  function disarmMenu() {
+    btnMenu.querySelector('.ico').textContent = '☰';
+    btnMenu.querySelector('.lbl').textContent = ' Menu';
+    delete btnMenu.dataset.armed;
+    clearTimeout(menuTimer);
+  }
+  btnMenu.onclick = () => {
+    if (btnMenu.dataset.armed) { disarmMenu(); showMenu(); return; }
+    btnMenu.dataset.armed = '1';
+    btnMenu.querySelector('.ico').textContent = '⚠';
+    btnMenu.querySelector('.lbl').textContent = ' Leave? Click again';
+    menuTimer = setTimeout(disarmMenu, 3000);
+  };
+
+  // Two-click confirmation (no browser dialogs, which some viewers block).
+  let confirmTimer = 0;
+  function disarmNew() {
+    const b = $('btnNew');
+    b.textContent = 'New run';
+    delete b.dataset.armed;
+    clearTimeout(confirmTimer);
+  }
+  $('btnNew').onclick = () => {
+    const b = $('btnNew');
+    if (b.dataset.armed) { disarmNew(); newRun(); return; }
+    b.dataset.armed = '1';
+    b.textContent = 'Sure? Click again';
+    confirmTimer = setTimeout(disarmNew, 3000);
+  };
+
+  // ------------------------------------------------------------------ help
+  const HELP = [
+    ['Buying and placing', [
+      'Drag a shop card onto an empty board cell or bench slot to buy it, or click the card and then the cell. Click the card twice to buy it automatically: it takes a free board cell, or the bench when the board is full. You get more gold each round, and gold you do not spend carries over. Lock the shop to keep its cards for the next round instead of getting a new shop.',
+      'Only units on the board fight. Bench units are safe to hold, but give no bonuses. Drag a unit (or click it, then click a cell) to move or swap it. Neighbours up, down, left and right count as adjacent. Selling a level 1 unit gives its full price back.']],
+    ['Merging', [
+      'Three copies of the same unit at the same level merge automatically, bench included: three level 1 make a level 2, three level 2 make a level 3. Buying the third copy works even when everything is full.']],
+    ['Fights and runs', [
+      'Fights are automatic: every unit attacks on its own timer and chips the enemy health bar. Empty it first to win.',
+      '10 wins to finish a run. You lose a life for each defeat, and you have 5.']],
+    ['Races', [
+      'Each run uses 3 races, shown at the top. Orcs, Dwarves, Fae and Clockwork help every race. Elves only help Elves. Humans like many different races.',
+      'Units marked ★ Mono, and the Dragons, grow with every unit of their own race on your board, with a little extra for a full board of one race.']],
+    ['Shields, slow and wind-up', [
+      'Shields (blue) soak damage before your health bar. Slow and delay (Fae) make the enemy attack later. Wind-up (Clockwork) makes machines attack faster every second of the fight.']],
+  ];
+  function showHelp(open) {
+    const m = $('help');
+    if (!open) { m.classList.add('hidden'); return; }
+    m.innerHTML = '';
+    const card = el('div', 'ocard helpcard');
+    card.appendChild(el('h2', '', 'How to play'));
+    const body = el('div', 'helpbody');
+    HELP.forEach(([title, paras]) => {
+      body.appendChild(el('h4', '', title));
+      paras.forEach(t => body.appendChild(el('p', '', t)));
+    });
+    card.appendChild(body);
+    const close = el('button', 'primary', 'Close');
+    close.onclick = () => showHelp(false);
+    card.appendChild(close);
+    m.appendChild(card);
+    m.classList.remove('hidden');
+  }
+  $('help').onclick = e => { if (e.target === $('help')) showHelp(false); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') showHelp(false); });
+  $('btnHelp').onclick = () => showHelp(true);
+  const btnSound = $('btnSound');
+  const paintSound = () => {
+    const off = SFX.isMuted();
+    btnSound.querySelector('.ico').textContent = off ? '🔇' : '🔊';
+    btnSound.querySelector('.lbl').textContent = off ? ' Sound off' : ' Sound on';
+    btnSound.title = btnSound.ariaLabel = off ? 'Sound off (click to turn on)' : 'Sound on (click to mute)';
+  };
+  btnSound.onclick = () => { SFX.toggle(); paintSound(); SFX.play('click'); };
+  paintSound();
+  S = G.newGame();
+  renderAll();
+  showMenu();
+  window.__game = () => S; // handy for debugging in the browser console
+})();
+
+</script>
+</body>
+</html>
