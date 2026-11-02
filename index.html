@@ -1103,7 +1103,7 @@
   // (script.enemy) and never comes through here. The health bar is NOT part of this: it is the same for both sides.
   const GT = root.GAME_TUNE || {};   // test hook (balance scripts), unused in the game
   // Team size by round (round 1, 2, 3...); a full 6 after the list ends.
-  const ENEMY_COUNT = GT.enemyCount || [0, 2, 3, 4, 5];
+  const ENEMY_COUNT = GT.enemyCount || [0, 2, 3, 4, 6];
   // Tier odds for enemy units. null = use the shop table (TIER_ODDS).
   const ENEMY_TIER_ODDS = GT.enemyOdds || null;
   // Chance that an enemy unit is level 3 / level 2 grows smoothly with the round.
@@ -1113,7 +1113,7 @@
   // softer shop tier odds (fewer tier 4-5, more tier 1-3): players now merge cheap units to level 3 far more often, enemies
   // do not merge, so they get these extra levels instead. Most of the raise is on level 2, which bites in rounds 3-7;
   // raising level 3 instead hits the late game, where focused (one-race) boards are strongest, and flattened their edge.
-  const ENEMY_L2 = GT.enemyL2 || [0.115, 0.64], ENEMY_L3 = GT.enemyL3 || [0.05, 0.42];
+  const ENEMY_L2 = GT.enemyL2 || [0.125, 0.66], ENEMY_L3 = GT.enemyL3 || [0.055, 0.44];
   // Expensive units level up more slowly, as they would for a player: tier 4 at 40% and tier 5 at 30% of the usual chance.
   const ENEMY_LEVEL_RATE = GT.enemyRate || [0, 1, 1, 1, 0.4, 0.3];
   // ======== end of ENEMY TUNING ========
