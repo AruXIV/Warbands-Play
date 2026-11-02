@@ -173,7 +173,10 @@
   #tut .tuttag { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
   #tut .tuttitle { font-size: 17px; font-weight: 800; color: var(--gold); }
   #tut .tuttext { font-size: 14px; line-height: 1.5; }
-  #tut button { align-self: flex-end; margin-top: 6px; }
+  #tut .tutbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  #tut .tutbtns button.hidden { display: none; }
+  .linkbtn { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: 14px; padding: 4px 8px; box-shadow: none; }
+  .linkbtn:hover { color: var(--text); }
   #tut.nudge { animation: nudge .4s; }
   @keyframes nudge { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
   @keyframes tutpulse { 50% { box-shadow: 0 0 0 4px #e8b84acc, 0 0 18px #e8b84a; } }
@@ -209,7 +212,7 @@
     </span>
   </header>
   <div id="msg"></div>
-  <section id="tut" class="hidden"><div class="tuttag"></div><div class="tuttitle"></div><div class="tuttext"></div><button id="tutNext" class="primary">Next</button></section>
+  <section id="tut" class="hidden"><div class="tuttag"></div><div class="tuttitle"></div><div class="tuttext"></div><div class="tutbtns"><button id="tutSkip">Skip tutorial</button><button id="tutNext" class="primary">Next</button></div></section>
 
   <main id="arena">
     <section class="side" id="playerSide">
@@ -247,6 +250,7 @@
     <div class="tagline">A medieval auto battler</div>
     <button id="menuPlay" class="primary big">Play</button>
     <button id="menuTut" class="big">Tutorial</button>
+    <button id="menuSkip" class="linkbtn">Skip the tutorial</button>
     <div class="menunote" id="menuNote"></div>
     <div class="menufine">Win 10 fights before you lose 5 lives. Every run has its own set of 3 races.</div>
   </div>
@@ -2626,11 +2630,20 @@
     $('menuPlay').disabled = !done;
     $('menuTut').classList.toggle('btnpulse', !done);
     $('menuTut').textContent = 'Tutorial';
-    $('menuNote').textContent = done ? '' : 'Finish the tutorial once to unlock Play.';
+    $('menuSkip').classList.toggle('hidden', done);
+    $('menuNote').textContent = done ? '' : 'Finish or skip the tutorial to unlock Play.';
     $('menu').classList.remove('hidden');
     tutRender();
   }
   $('menuPlay').onclick = () => { if (!tutDone()) return; SFX.play('click'); $('menu').classList.add('hidden'); newRun(); };
+  $('menuSkip').onclick = () => { SFX.play('click'); store.set('warband-tutorial-done', '1'); showMenu(); };
+  let skipTimer = 0;
+  $('tutSkip').onclick = () => {
+    const b = $('tutSkip');
+    if (b.dataset.armed) { clearTimeout(skipTimer); delete b.dataset.armed; b.textContent = 'Skip tutorial'; store.set('warband-tutorial-done', '1'); showMenu(); return; }
+    b.dataset.armed = '1'; b.textContent = 'Really skip?';
+    skipTimer = setTimeout(() => { delete b.dataset.armed; b.textContent = 'Skip tutorial'; }, 3000);
+  };
   $('menuTut').onclick = () => { SFX.play('click'); $('menu').classList.add('hidden'); startTutorial(); };
   let menuTimer = 0;
   const btnMenu = $('btnMenu');
