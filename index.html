@@ -90,6 +90,7 @@
   [data-drag-uid] { touch-action: none; }
   body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
   .dragsrc { opacity: .4; }
+  #shop.dropover { outline-color: #e0574a; background: #e0574a22; }
   .dropover { outline: 3px dashed var(--gold); outline-offset: -3px; background: #e8b84a22; }
   .unit.ghost { position: fixed; z-index: 30; margin: 0; pointer-events: none; opacity: .92; transform: scale(1.05); box-shadow: 0 6px 16px #000a; }
   .unit.selected { outline: 3px solid var(--gold); outline-offset: 1px; }
@@ -187,7 +188,7 @@
   .btnpulse { animation: tutpulse 1.1s ease-in-out infinite; border-color: var(--gold) !important; }
 
   @media (max-width: 720px) { #info { max-width: none; } }
-  /* The info panel beside the army never changes the page height: it fills a slot as tall as the army and scrolls inside. */
+  /* The info panel beside the warband never changes the page height: it fills a slot as tall as the warband and scrolls inside. */
   #infoSlot { display: none; position: relative; flex: 1 1 250px; max-width: 340px; min-width: 250px; align-self: stretch; }
   #infoSlot.on { display: block; }
   #info.sidepanel { position: absolute; top: 22px; left: 0; right: 0; bottom: 0; max-width: none; min-height: 0; overflow-y: auto; }
@@ -216,7 +217,7 @@
 
   <main id="arena">
     <section class="side" id="playerSide">
-      <div class="title">Your army</div>
+      <div class="title">Your warband</div>
       <div class="bar" id="playerBar"><div class="track"><div class="fill"></div></div><div class="shieldbar"></div><div class="label"></div><div class="floats"></div><div class="slowtag"></div></div>
       <div id="raceline" class="hidden"></div>
       <div id="foeline" class="hidden"></div>
@@ -1571,7 +1572,7 @@
   const STEPS = [
     // ---- round 1: buying, placing, neighbours, the fight
     { kind: 'info', round: 1, title: 'Welcome to Warbands',
-      text: 'You lead a warband. Each round you spend gold in the shop, then your army fights an enemy warband on its own. Win 5 fights to finish this tutorial.' },
+      text: 'You lead a warband. Each round you spend gold in the shop, then your warband fights an enemy warband on its own. Win 5 fights to finish this tutorial.' },
     { kind: 'do', round: 1, title: 'Buy a unit',
       text: 'Buy the Militiaman: drag its card onto a cell of your board, or click the card twice. A unit costs as much gold as its tier.',
       allow: { shop: [0], to: 'board', auto: true }, done: S => onBoard(S, 'militiaman') },
@@ -1610,7 +1611,7 @@
     { kind: 'do', round: 3, title: 'Reroll',
       text: 'Not happy with the shop? Press Reroll (1 gold) to see new units.',
       allow: { reroll: true }, done: S => S.rolls >= 2 },
-    { kind: 'do', round: 3, title: 'Grow your army',
+    { kind: 'do', round: 3, title: 'Grow your warband',
       text: 'Buy the Thunderer and the Brute and put them on your board. More units means more hits.',
       allow: { shop: [0, 1], to: 'board', auto: true }, done: S => onBoard(S, 'thunderer') && onBoard(S, 'brute') },
     { kind: 'fight', round: 3, title: 'Fight!',
@@ -1637,11 +1638,11 @@
     { kind: 'info', round: 5, title: 'Races',
       text: 'The coloured chips at the top show which races can appear in your shop this run. Orcs help the units around them, Dwarves make shields, Humans like having different races on the board. Units marked ★ Mono grow with every unit of their own race.' },
     { kind: 'fight', round: 5, title: 'Your turn',
-      text: 'Spend your gold, arrange your army (neighbours matter!) and press Fight. Reroll, sell and move units if you like.',
-      battleText: 'Your army, your choices.', winText: '4 wins out of 5. One more!', loseText: '',
+      text: 'Spend your gold, arrange your warband (neighbours matter!) and press Fight. Reroll, sell and move units if you like.',
+      battleText: 'Your warband, your choices.', winText: '4 wins out of 5. One more!', loseText: '',
       allow: FREE },
     { kind: 'fight', round: 6, title: 'The last fight',
-      text: 'One more win and you are done. Build your army and press Fight!',
+      text: 'One more win and you are done. Build your warband and press Fight!',
       battleText: 'Good luck!', winText: '', loseText: '',
       allow: FREE },
   ];
@@ -2034,7 +2035,7 @@
     ['hexes|hexed', 'A hexed enemy unit attacks slower for the whole fight.'],
     ['delays?', 'Pushes the next enemy attacks back. One unit can be delayed at most 2s per fight.'],
     ['stolen speed', 'The Spirit Stag attacks faster, based on how much Fae slow the enemy team.'],
-    ['health bar', 'The bar your whole army shares. When it is empty you lose the fight.'],
+    ['health bar', 'The bar your whole warband shares. When it is empty you lose the fight.'],
     ['shields?', 'Soaks up damage before the health bar does.'],
   ];
   const KWRE = new RegExp('(' + KW.map(k => k[0]).join('|') + ')', 'i');
@@ -2133,7 +2134,7 @@
     if (!smallScreen()) {
       box.classList.remove('infofloat', 'off');
       box.style.left = box.style.top = box.style.maxHeight = box.style.width = box.style.pointerEvents = '';
-      // In the shop phase the info sits right next to your army (where the enemy shows up in a fight).
+      // In the shop phase the info sits right next to your warband (where the enemy shows up in a fight).
       const target = S.phase === 'shop' ? $('infoSlot') : $('lower');
       if (box.parentElement !== target) target.appendChild(box);
       $('infoSlot').classList.toggle('on', target === $('infoSlot'));
@@ -2337,7 +2338,10 @@
   let drag = null;
   function dropTargetAt(x, y) {
     const hit = document.elementFromPoint(x, y);
-    return hit ? hit.closest('[data-drop-cell],[data-drop-bench]') : null;
+    const t = hit ? hit.closest('[data-drop-cell],[data-drop-bench],#shop') : null;
+    // The shop is a drop target only for your own units: dropping one on it sells it.
+    if (t && t.id === 'shop' && !(drag && drag.src && drag.src.dataset.dragUid !== undefined)) return null;
+    return t;
   }
   function endDrag() {
     if (!drag) return;
@@ -2395,13 +2399,20 @@
     if (!drag) return;
     if (!drag.active) { drag = null; return; }
     const target = dropTargetAt(e.clientX, e.clientY);
+    const sellUid = drag.src.dataset.dragUid;
     endDrag();
     // The click that follows a drag must not do anything.
     const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
     document.addEventListener('click', swallow, { capture: true, once: true });
     setTimeout(() => document.removeEventListener('click', swallow, true), 0);
     if (!target || S.phase !== 'shop') { sel = null; renderAll(); return; }
-    if (target.dataset.dropBench !== undefined) onBenchSlot(+target.dataset.dropBench);
+    if (target.id === 'shop') {
+      const mine = S.board.concat(S.bench.filter(Boolean)).find(x => String(x.uid) === sellUid);
+      if (!mine) { sel = null; renderAll(); return; }
+      const ta = allowOf();
+      if (ta && (!ta.sell || !unitOk(ta, G.BY_ID[mine.id]))) { sel = null; renderAll(); tutNo(); return; }
+      act(G.sell(S, mine.uid));
+    } else if (target.dataset.dropBench !== undefined) onBenchSlot(+target.dataset.dropBench);
     else {
       const cell = +target.dataset.dropCell;
       const there = G.unitAt(S.board, cell);
@@ -2680,7 +2691,7 @@
   // ------------------------------------------------------------------ help
   const HELP = [
     ['Buying and placing', [
-      'Drag a shop card onto an empty board cell or bench slot to buy it, or click the card and then the cell. Click the card twice to buy it automatically: it takes a free board cell, or the bench when the board is full. You get more gold each round, and gold you do not spend carries over. Lock the shop to keep its cards for the next round instead of getting a new shop.',
+      'Drag a shop card onto an empty board cell or bench slot to buy it, and drag one of your units onto the shop to sell it, or click the card and then the cell. Click the card twice to buy it automatically: it takes a free board cell, or the bench when the board is full. You get more gold each round, and gold you do not spend carries over. Lock the shop to keep its cards for the next round instead of getting a new shop.',
       'Only units on the board fight. Bench units are safe to hold, but give no bonuses. Drag a unit (or click it, then click a cell) to move or swap it. Neighbours up, down, left and right count as adjacent. Selling a level 1 unit gives its full price back.']],
     ['Merging', [
       'Three copies of the same unit at the same level merge automatically, bench included: three level 1 make a level 2, three level 2 make a level 3. Buying the third copy works even when everything is full.']],
