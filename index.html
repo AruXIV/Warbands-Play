@@ -166,7 +166,7 @@
   #titleCanvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; image-rendering: pixelated; z-index: 0; }
   #menu::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, #1a0f2e99 100%); }
   .menucard { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; max-width: 420px; width: 100%; margin-top: clamp(16px, 7vh, 80px); }
-  .menucard .logo { font-size: clamp(40px, 12vw, 78px); font-weight: 900; letter-spacing: 6px; color: #ffd45e;
+  .menucard .logo { font-size: clamp(48px, 15vw, 132px); font-weight: 900; letter-spacing: 8px; line-height: 1; margin-bottom: 26px; color: #ffd45e;
     background: linear-gradient(100deg, #ffd45e 38%, #fffbe0 50%, #ffd45e 62%) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 4px 0 #3a1a08) drop-shadow(0 0 18px #ffb34788); animation: logoshine 5s ease-in-out infinite; }
   @keyframes logoshine { 0%, 55% { background-position: 100% 0; } 85%, 100% { background-position: 0 0; } }
@@ -256,7 +256,6 @@
   <canvas id="titleCanvas" aria-hidden="true"></canvas>
   <div class="menucard">
     <div class="logo">WARBANDS</div>
-    <div class="tagline">Small heroes. Big battles.</div>
     <div class="menupanel">
     <button id="menuPlay" class="primary big">Play</button>
     <button id="menuTut" class="big">Tutorial</button>
@@ -1717,7 +1716,7 @@
       const q = Math.round((f - i) * 4) / 4;                // banded gradient: looks like hand-placed colour steps
       rect(0, y, W, 3, mix(SKY[i], SKY[i + 1], q));
     }
-    stars.forEach(s => { if (Math.sin(t * 1.6 + s.p) > -0.2) rect(s.x, s.y, 1, 1, 'rgba(255,240,210,.85)'); });
+    stars.forEach(s => rect(s.x, s.y, 1, 1, 'rgba(255,240,210,.85)'));
   }
   function drawSun() {
     const cx = 86, cy = 92;
@@ -1730,7 +1729,7 @@
   }
   function drawClouds(t) {
     clouds.forEach(c => {
-      const x = mod(c.x + t * c.s, W + 80) - 40, w = Math.round(c.w);
+      const x = mod(c.x, W + 80) - 40, w = Math.round(c.w);
       rect(x, c.y, w, 3, '#f7a78f'); rect(x + 4, c.y - 3, w - 12, 3, '#fbc0a0'); rect(x + 8, c.y - 5, Math.round(w / 3), 2, '#ffd9b8');
       rect(x + 2, c.y + 3, w - 6, 2, '#c8607a');
     });
@@ -1757,9 +1756,9 @@
       rect(sx - 7, gy - 36, 14, 36, c2);                      // keep
       for (let i = 0; i < 4; i++) rect(sx - 7 + i * 4, gy - 39, 3, 3, c2);
       rect(sx - 1, gy - 46, 2, 8, '#3a2350');                 // flag pole
-      const fl = Math.round(Math.sin(t * 5) * 1);
+      const fl = 0;
       rect(sx + 1, gy - 46 + fl, 6, 3, '#e8b84a');           // pennant
-      const lit = (x, y, ph) => { if (Math.sin(t * 2.2 + ph) > -0.6) rect(sx + x, gy + y, 2, 3, '#ffd27a'); };
+      const lit = (x, y) => rect(sx + x, gy + y, 2, 3, '#ffd27a');
       lit(-4, -30, 0); lit(2, -30, 1.5); lit(-20, -20, 3); lit(18, -20, 4.5); lit(-4, -10, 2); lit(2, -10, 5);
     }
   }
@@ -1787,7 +1786,7 @@
     rect(px - 3, top - 6, 7, 3, '#e8b84a');                                              // finial
     const cw = 20, ch = 38, notch = 9;
     const phase = dir > 0 ? 0 : 1.7;
-    const swayAt = r => Math.sin(t * 2.6 + r * 0.13 + phase) * (0.5 + r / ch * 1.7);
+    const swayAt = () => 0;
     for (let r = 0; r < ch; r++) {
       const x0 = px + (dir > 0 ? 2 : -2 - cw) + Math.round(swayAt(r)) * dir;
       const c = r < 3 ? '#e8b84a' : (r % 7 === 6 ? dark : main);
@@ -1815,7 +1814,7 @@
     for (let k = 0; k < 3; k++) {
       const y0 = 140 + k * 8, a = 0.045 + k * 0.02;
       for (let x = 0; x < W; x += 4) {
-        const wob = Math.sin(x * 0.025 + t * 0.4 + k * 2) * 2;
+        const wob = Math.sin(x * 0.025 + k * 2) * 2;
         rect(x, y0 + wob, 4, 5, 'rgba(255,214,225,' + a + ')');
       }
     }
@@ -1826,17 +1825,17 @@
     drawSky(t);
     drawSun();
     drawClouds(t);
-    drawHills(farTop, '#7a4f86', '#9a6a9c', t * 1.5);
-    drawCastle(t * 1.5, t);
-    drawHills(midTop, '#4d3568', '#6a4a80', t * 3);
-    drawTrees(trees, t * 3, midTop, '#3a2858', '#4a3470');
-    drawHills(nearTop, '#2a1d44', '#3c2a5c', t * 6);
-    drawTrees(trees2, t * 6, nearTop, '#1d1432', '#2c2048');
+    drawHills(farTop, '#7a4f86', '#9a6a9c', 0);
+    drawCastle(0, t);
+    drawHills(midTop, '#4d3568', '#6a4a80', 0);
+    drawTrees(trees, 0, midTop, '#3a2858', '#4a3470');
+    drawHills(nearTop, '#2a1d44', '#3c2a5c', 0);
+    drawTrees(trees2, 0, nearTop, '#1d1432', '#2c2048');
     rect(0, 168, W, 12, '#150e24');                           // dark ground behind the menu
     rect(0, 167, W, 1, '#2a1d44');
+    drawMist(t);
     drawBanner(34, left, 1, t);
     drawBanner(W - 34, right, -1, t);
-    drawMist(t);
     drawEmbers(t);
   }
 
