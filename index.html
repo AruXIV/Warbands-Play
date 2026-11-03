@@ -150,6 +150,20 @@
   .kwtip { position: fixed; z-index: 40; max-width: 240px; padding: 7px 10px; background: #1b130c; color: var(--text); border: 2px solid var(--gold);
     border-radius: 8px; font-size: 12px; line-height: 1.35; pointer-events: none; box-shadow: 0 4px 14px #000a; }
 
+
+  /* fight statistics (result card) */
+  .statsbox { margin-top: 16px; text-align: left; max-height: 46vh; overflow-y: auto; font-size: 12px; }
+  .statsbox .stitle { margin: 10px 0 4px; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+  .statsbox .srow { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .statsbox .srow.empty { color: var(--muted); }
+  .statsbox .sname { flex: 0 0 132px; margin: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .statsbox .sparts { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .statsbox .spart { position: relative; display: block; height: 16px; background: #0004; border-radius: 3px; overflow: hidden; }
+  .statsbox .spart i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+  .statsbox .spart.dmg i { background: #a8392f; } .statsbox .spart.heal i { background: #3f8a52; } .statsbox .spart.ward i { background: #3e6bb0; }
+  .statsbox .spart b { position: relative; padding-left: 6px; line-height: 16px; font-size: 11px; text-shadow: 0 1px 0 #000; }
+  .statsbox .snone { color: var(--muted); font-size: 11px; }
+  .statsbox .sfine { margin-top: 10px; color: var(--muted); font-size: 11px; }
   /* result overlay */
   #overlay { position: fixed; inset: 0; background: #000a; display: flex; align-items: center; justify-content: center; z-index: 10; }
   .ocard { background: var(--panel); border: 3px solid var(--gold); border-radius: 12px; padding: 26px 34px; text-align: center; min-width: 280px; }
@@ -202,7 +216,32 @@
   #info.infofloat { position: fixed; z-index: 35; min-height: 0; max-width: none; overflow-y: auto; box-shadow: 0 6px 24px #000a; }
   #info.infofloat.off { display: none; }
   @media (max-width: 480px) { #top .hbtns { gap: 6px; } #top button { padding: 5px 10px; font-size: 13px; } #top .lbl { display: none; } }
+/* Look refinements (race-colour card edges, coin badge, inset slots, chunky buttons) */
+.side .title{letter-spacing:2px}
+/* panels: slightly crisper frame */
+#top,.grid,.bench,#info{border-radius:4px;box-shadow:0 3px 0 #0006}
+/* shop cards: race color edge + coin cost badge */
+.card:has(.race-Human){--rc:#4f84d4}.card:has(.race-Elf){--rc:#3fb383}.card:has(.race-Orc){--rc:#c05a37}
+.card:has(.race-Dwarf){--rc:#b8923f}.card:has(.race-Fae){--rc:#a56bd1}.card:has(.race-Clockwork){--rc:#8f98a8}
+.card{border-radius:4px;border-left:6px solid var(--rc,var(--line));box-shadow:0 3px 0 #0006}
+.card .cost{display:inline-block;background:#0008;color:#ffd166;border:1px solid #5a4129;border-radius:10px;padding:1px 9px;font-size:13px}
+/* slots: inset tile instead of dashed outline */
+.slot,.bslot{border:2px solid color-mix(in srgb, var(--line) 45%, transparent);border-radius:4px;background:#0004;box-shadow:inset 0 3px 0 #0005}
+/* buttons: chunky bottom edge, press sinks, NO colour change on hover */
+button{border-radius:4px;box-shadow:0 3px 0 #0008}
+button:hover:not(:disabled){border-color:var(--line)}
+button:active:not(:disabled){transform:translateY(3px);box-shadow:0 0 0 #0008}
+button.primary{background:var(--prim,#7a5a1c);font-size:17px;padding:9px 20px}
+button.primary:hover:not(:disabled){border-color:var(--gold)}
+.bar .track{border-radius:3px}
+
+/* Colour themes. No data-pal = the original brown ("classic"). */
+:root[data-pal="midnight"]{--bg:#0c1018;--panel:#141b28;--panel2:#1d2738;--line:#34445f;--text:#e6ebf3;--muted:#8e9bb2;--gold:#e8b84a;--prim:#5f5424}
+:root[data-pal="charcoal"]{--bg:#121214;--panel:#1c1c20;--panel2:#26262c;--line:#41414b;--text:#e8e6e1;--muted:#9a98a0;--gold:#e8b84a;--prim:#6b5518}
+:root[data-pal="forest"]{--bg:#0e1411;--panel:#15201a;--panel2:#1e2c24;--line:#36533f;--text:#e6eddf;--muted:#93a396;--gold:#e0c060;--prim:#5a581f}
+:root[data-pal]:not([data-pal="classic"]) .kwtip{background:var(--bg)}
 </style>
+<script>try{document.documentElement.dataset.pal=localStorage.getItem("warbands-theme")||"midnight";}catch(e){document.documentElement.dataset.pal="midnight";}</script>
 </head>
 <body>
 <div id="app">
@@ -215,6 +254,7 @@
     <span class="hbtns">
       <button id="btnHelp" title="How to play" aria-label="How to play">❓<span class="lbl"> How to play</span></button>
       <button id="btnSound" title="Sound" aria-label="Sound"><span class="ico">🔊</span><span class="lbl"> Sound on</span></button>
+      <button id="btnTheme" title="Colour theme" aria-label="Colour theme"><span class="ico">🎨</span><span class="lbl"> Theme</span></button>
       <button id="btnMenu" title="Main menu" aria-label="Main menu"><span class="ico">☰</span><span class="lbl"> Menu</span></button>
       <button id="btnNew">New run</button>
     </span>
@@ -326,7 +366,7 @@
     // Fae (slows the enemy)
     pixie: [0.03, 0.04, 0.04], pixiePer: 0.01, thorn: [0.5, 0.8, 0.8], dryad: 0.07, // Pixie slow (+1% per Fae); Thornguard delay (s); Dryad heal
     stag: 0.75, stagFull: 0.5, stagAtk: 3, stagSteal: 1.5, // Spirit Stag: attack per Fae, full extra, base, speed per enemy slow
-    storm: 0.75, stormFull: 1, stormAtk: 6,           // Storm Wyrm: attack per Fae, full extra, base attack
+    storm: 0.75, stormFull: 1, stormAtk: 6,           // Twilight Drake: attack per Fae, full extra, base attack
     trickAtk: 7,                                       // Trickster base attack
     change: [1.3, 1.6, 1.6], changeDelay: 1, changeAtk: 5, // Changeling: share of the hardest enemy hit (counted at level 1) it copies; L3 delay (s)
     // Clockwork (gives wind-up)
@@ -527,7 +567,7 @@
       `Every 3s: heals ${pc(T.dryad)} of the health bar.`,
       'Every 2.5s. Heals ×1.25 the Lv 1 amount.',
       'Every 2s. Heals ×1.5 the Lv 1 amount. Each heal gives enemy −3% attack speed for the fight.'] }),
-    def('spiritstag', 'Spirit Stag', 'Fae', 'Berserker', 3, { atk: T.stagAtk, interval: 2, mono: true, lv: [
+    def('spiritstag', 'Satyr', 'Fae', 'Berserker', 3, { atk: T.stagAtk, interval: 2, mono: true, lv: [
       `+${T.stag} attack per Fae on your board. Full Fae board: +${T.stagFull} extra. Stolen speed: gains ${T.stagSteal}× the enemy\'s slow as attack speed.`,
       'No other change.',
       'Your other Fae get half of the stolen speed.'] }),
@@ -539,7 +579,7 @@
       `Battle start: copies the attack of the hardest-hitting enemy unit (its own attack at level 1, at least ${T.changeAtk}).`,
       `Copies ${T.change[0]}× → ${T.change[1]}× that attack.`,
       `The copied enemy unit's first hit comes ${T.changeDelay}s later.`] }),
-    def('stormwyrm', 'Storm Wyrm', 'Fae', 'Dragon', 5, { atk: T.stormAtk, interval: 2, mono: true, lv: [
+    def('stormwyrm', 'Twilight Drake', 'Fae', 'Dragon', 5, { atk: T.stormAtk, interval: 2, mono: true, lv: [
       `+${T.storm} attack per Fae on your board. Full Fae board: +${T.stormFull} extra. Each hit gives enemy −5% attack speed for the rest of the fight.`,
       'Enemy attack speed per hit −5% → −7%.',
       'Every 3rd hit delays all enemy hits by 0.5s.'] }),
@@ -954,6 +994,8 @@
     copied.forEach(f => { const add = Math.max(0, Math.min(T.changeDelay, DELAY_CAP - f.delayed)); f.delayed += add; f.next += add; });
 
     // Advances the fight by dt seconds and returns what happened, for the UI to animate.
+    // Fight statistics for the UI: per side, uid -> { dmg: attack damage dealt, heal: health restored, ward: shield granted }.
+    b.stats = [{}, {}];
     b.step = function (dt) {
       if (b.over) return [];
       b.t = Math.round((b.t + dt) * 1000) / 1000;
@@ -1084,6 +1126,11 @@
         b.over = true; b.timeout = true;
         const p = b.sides[0].hp, e = b.sides[1].hp;
         b.result = Math.abs(p - e) < 1e-6 ? 'draw' : p > e ? 'win' : 'loss';
+      }
+      for (const e of events) {
+        if (e.uid == null || (e.kind !== 'attack' && e.kind !== 'heal' && e.kind !== 'ward')) continue;
+        const st = b.stats[e.side][e.uid] || (b.stats[e.side][e.uid] = { dmg: 0, heal: 0, ward: 0 });
+        st[e.kind === 'attack' ? 'dmg' : e.kind] += e.value;
       }
       return events;
     };
@@ -1427,6 +1474,7 @@
     if (s.gold < CFG.rerollCost) return fail('Not enough gold.');
     s.gold -= CFG.rerollCost;
     rollShop(s);
+    s.locked = false;   // a reroll replaces the kept cards, so the lock ends
     return ok();
   }
 
@@ -2699,6 +2747,54 @@
     endFight(150);
   }
 
+  // Fight statistics: a snapshot of what every unit did in the fight that just ended (shown by the Stats button on the result card).
+  let lastFight = null;
+  function fightStats(b) {
+    if (!b || !b.stats) return null;
+    return b.sides.map((side, si) => side.units.map(u => {
+      const s = b.stats[si][u.uid] || { dmg: 0, heal: 0, ward: 0 };
+      return { name: u.def.name, race: u.race, level: u.level, dmg: s.dmg, heal: s.heal, ward: s.ward };
+    }));
+  }
+  function statsPanel() {
+    const box = el('div', 'statsbox');
+    const sides = [['Your warband', lastFight[0]], ['Enemy warband', lastFight[1]]];
+    const top = Math.max(1, ...lastFight.flat().map(r => Math.max(r.dmg, r.heal, r.ward)));
+    sides.forEach(([title, rows]) => {
+      box.appendChild(el('div', 'stitle', title));
+      if (!rows.length) { box.appendChild(el('div', 'srow empty', 'No units')); return; }
+      rows.slice().sort((x, y) => (y.dmg + y.heal + y.ward) - (x.dmg + x.heal + x.ward)).forEach(r => {
+        const row = el('div', 'srow');
+        row.appendChild(el('span', 'sname chip race-' + r.race, r.name + (r.level > 1 ? ' ' + '★'.repeat(r.level - 1) : '')));
+        const parts = el('span', 'sparts');
+        [['dmg', '⚔', r.dmg], ['heal', '✚', r.heal], ['ward', '🛡', r.ward]].forEach(([k, ico, v]) => {
+          if (v <= 0) return;
+          const p = el('span', 'spart ' + k);
+          const bar = el('i'); bar.style.width = Math.max(6, Math.round(v / top * 100)) + '%';
+          p.appendChild(bar); p.appendChild(el('b', '', ico + ' ' + Math.round(v)));
+          parts.appendChild(p);
+        });
+        if (!parts.childNodes.length) parts.appendChild(el('span', 'snone', 'support only'));
+        row.appendChild(parts);
+        box.appendChild(row);
+      });
+    });
+    box.appendChild(el('div', 'sfine', '⚔ damage dealt · ✚ health restored · 🛡 shield granted. Buffs and slows are not counted.'));
+    return box;
+  }
+  function statsButton(card) {
+    if (!lastFight) return;
+    const b = el('button', '', '📊 Stats');
+    b.style.marginLeft = '8px';
+    let panel = null;
+    b.onclick = () => {
+      SFX.play('click');
+      if (panel) { panel.remove(); panel = null; b.classList.remove('on'); return; }
+      panel = statsPanel(); card.appendChild(panel); b.classList.add('on');
+    };
+    card.querySelector('button').after(b);
+  }
+
   let ending = false;
   function endFight(delay) {
     if (ending) return;
@@ -2706,6 +2802,7 @@
     setTimeout(() => {
       ending = false;
       if (S.phase !== 'battle') return;
+      lastFight = fightStats(S.battle);
       G.finishBattle(S);
       renderTop();
       renderControls();
@@ -2794,6 +2891,7 @@
     const btn = el('button', 'primary', label);
     btn.onclick = handler;
     card.appendChild(btn);
+    statsButton(card);
     if (endOfRun) { const m = el('button', '', 'Main menu'); m.style.marginLeft = '8px'; m.onclick = () => { SFX.play('click'); showMenu(); }; card.appendChild(m); }
     o.appendChild(card);
     o.classList.remove('hidden');
@@ -2898,7 +2996,7 @@
   // ------------------------------------------------------------------ help
   const HELP = [
     ['Buying and placing', [
-      'Drag a shop card onto an empty board cell or bench slot to buy it, and drag one of your units onto the shop to sell it, or click the card and then the cell. Click the card twice to buy it automatically: it takes a free board cell, or the bench when the board is full. You get more gold each round, and gold you do not spend carries over. Lock the shop to keep its cards for the next round instead of getting a new shop.',
+      'Drag a shop card onto an empty board cell or bench slot to buy it, and drag one of your units onto the shop to sell it, or click the card and then the cell. Click the card twice to buy it automatically: it takes a free board cell, or the bench when the board is full. You get more gold each round, and gold you do not spend carries over. Lock the shop to keep its cards for the next round instead of getting a new shop (rerolling unlocks it again).',
       'Only units on the board fight. Bench units are safe to hold, but give no bonuses. Drag a unit (or click it, then click a cell) to move or swap it. Neighbours up, down, left and right count as adjacent. Selling a level 1 unit gives its full price back.']],
     ['Merging', [
       'Three copies of the same unit at the same level merge automatically, bench included: three level 1 make a level 2, three level 2 make a level 3. Buying the third copy works even when everything is full.']],
@@ -2939,6 +3037,22 @@
     btnSound.querySelector('.lbl').textContent = off ? ' Sound off' : ' Sound on';
     btnSound.title = btnSound.ariaLabel = off ? 'Sound off (click to turn on)' : 'Sound on (click to mute)';
   };
+  // colour theme: cycles midnight > charcoal > forest > classic, remembered in browser storage
+  const THEMES = ['midnight', 'charcoal', 'forest', 'classic'], THEME_NAMES = { midnight: 'Midnight', charcoal: 'Charcoal', forest: 'Forest', classic: 'Classic' };
+  const btnTheme = $('btnTheme');
+  const paintTheme = () => {
+    const t = document.documentElement.dataset.pal || 'midnight';
+    btnTheme.querySelector('.lbl').textContent = ' ' + THEME_NAMES[t];
+    btnTheme.title = btnTheme.ariaLabel = 'Colour theme: ' + THEME_NAMES[t] + ' (click for the next)';
+  };
+  btnTheme.onclick = () => {
+    const cur = THEMES.indexOf(document.documentElement.dataset.pal);
+    const next = THEMES[(cur + 1) % THEMES.length];
+    document.documentElement.dataset.pal = next;
+    try { localStorage.setItem('warbands-theme', next); } catch (e) {}
+    paintTheme(); SFX.play('click');
+  };
+  paintTheme();
   btnSound.onclick = () => { SFX.toggle(); paintSound(); SFX.play('click'); };
   paintSound();
   S = G.newGame();
