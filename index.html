@@ -97,7 +97,7 @@
   .unit.ghost { position: fixed; z-index: 30; margin: 0; pointer-events: none; opacity: .92; transform: scale(1.05); box-shadow: 0 6px 16px #000a; }
   .unit.selected { outline: 3px solid var(--gold); outline-offset: 1px; }
   .unit .ico { font-size: calc(var(--cell) * .40); line-height: 1; }
-  .unit .sprite { width: 94%; height: auto; max-height: calc(100% - 14px); min-height: 0; flex: 0 1 auto; image-rendering: pixelated; object-fit: contain; }
+  .unit .sprite { -webkit-user-drag: none; user-select: none; width: 94%; height: auto; max-height: calc(100% - 14px); min-height: 0; flex: 0 1 auto; image-rendering: pixelated; object-fit: contain; }
   .unit .nm { font-size: 10px; font-weight: 700; text-shadow: 0 1px 0 #000; text-align: center; line-height: 1.1; padding: 0 2px; }
   .unit .stars { position: absolute; top: 2px; right: 4px; color: var(--gold); font-size: 11px; text-shadow: 0 1px 0 #000; }
   .unit .badge { position: absolute; left: 4px; bottom: 3px; font-size: 11px; font-weight: 700; background: #000b; padding: 0 4px; border-radius: 3px; }
@@ -2355,6 +2355,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       const img = new Image();
       img.className = 'sprite';
       img.alt = d.name;
+      img.draggable = false;   // the browser's own image drag would steal the mouse from our drag and drop
       img.onerror = () => { img.replaceWith(icon()); };
       img.src = (window.SPRITE_DATA && window.SPRITE_DATA[d.id]) || 'sprites/' + d.id + '.png';
       t.appendChild(img);
