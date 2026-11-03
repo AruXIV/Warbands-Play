@@ -2665,6 +2665,19 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   const RACEMAP = { human: 'Human', humans: 'Human', elf: 'Elf', elves: 'Elf', orc: 'Orc', orcs: 'Orc', dwarf: 'Dwarf', dwarves: 'Dwarf', fae: 'Fae', clockwork: 'Clockwork', prismatic: 'Neutral' };
   const raceOf = w => RACEMAP[w.toLowerCase()];
   const KWRE = new RegExp('(' + KW.map(k => k[0]).join('|') + '|\\b(?:' + RACEWORD + ')\\b)', 'i');
+  // Plain text with the race names turned into pills (tutorial and help texts).
+  const RACETEXTRE = new RegExp('\\b(' + RACEWORD + ')\\b');
+  function raceText(parent, text) {
+    parent.textContent = '';
+    let rest = text;
+    while (rest) {
+      const m = RACETEXTRE.exec(rest);
+      if (!m) { parent.appendChild(document.createTextNode(rest)); return; }
+      if (m.index) parent.appendChild(document.createTextNode(rest.slice(0, m.index)));
+      parent.appendChild(el('span', 'chip race-' + raceOf(m[0]) + ' inline', m[0]));
+      rest = rest.slice(m.index + m[0].length);
+    }
+  }
   function rich(parent, text, used) {
     let rest = text;
     while (rest) {
@@ -2864,7 +2877,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     box.classList.remove('hidden');
     box.querySelector('.tuttag').textContent = 'Tutorial · round ' + st.round + ' of ' + TUT.STEPS[TUT.STEPS.length - 1].round;
     box.querySelector('.tuttitle').textContent = st.title;
-    box.querySelector('.tuttext').textContent = S.phase === 'battle' && st.battleText ? st.battleText : st.text;
+    raceText(box.querySelector('.tuttext'), S.phase === 'battle' && st.battleText ? st.battleText : st.text);
     $('tutNext').classList.toggle('hidden', !(st.kind === 'info' && S.phase === 'shop'));
     if (S.phase !== 'shop') return;
     // Grey out what is not allowed and highlight what the step asks for.
@@ -3445,7 +3458,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     const body = el('div', 'helpbody');
     HELP.forEach(([title, paras]) => {
       body.appendChild(el('h4', '', title));
-      paras.forEach(t => body.appendChild(el('p', '', t)));
+      paras.forEach(t => { const p = el('p', ''); raceText(p, t); body.appendChild(p); });
     });
     card.appendChild(body);
     const close = el('button', 'primary', 'Close');
