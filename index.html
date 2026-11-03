@@ -1841,14 +1841,14 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
 // Ranked system (no DOM). Leagues, points per run, promotion / demotion with carry-over, and saving the rank and the
 // unfinished run in browser storage. Works as window.Rank in the page and as module.exports in node (tests/rank_test.js).
 // Rules (roster.md, "Rank system"): 100 points in a league promotes, the overflow carries over (Silver 95 +20 = Gold 15);
-// below 0 demotes and carries the deficit (Platinum 10 -15 = Gold 95); never below Iron 0; Warlord has no cap; start Bronze 0.
+// below 0 demotes and carries the deficit (Platinum 10 -15 = Gold 95); never below Iron 0; Warlord has no cap; start Iron 0.
 // The tutorial gives no points (its runs have no runId and are never scored).
 (function (root) {
   'use strict';
   const LEAGUES = ['Iron', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Warlord'];
   const SYMBOLS = { Iron: '⚙️', Bronze: '🥉', Silver: '🥈', Gold: '🥇', Platinum: '💠', Diamond: '💎', Warlord: '👑' };
   const PER_LEAGUE = 100;
-  const START = { league: 1, points: 0 };   // Bronze 0
+  const START = { league: 0, points: 0 };   // Iron 0
   const KEY_RANK = 'warband-rank', KEY_RUN = 'warband-run';
 
   // Points for a finished (or abandoned) run, by wins.
