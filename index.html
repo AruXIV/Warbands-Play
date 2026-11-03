@@ -203,6 +203,9 @@
   .menunote { min-height: 18px; font-size: 13px; color: var(--gold); }
   /* ranked leagues */
   .menurank { font-size: 18px; font-weight: 700; color: #fff1d0; }
+  .menurank .sym { display: inline-block; line-height: 1; vertical-align: middle; position: relative; top: -7.4px; }
+  .menunote .sym, .rankline .sym { display: inline-block; line-height: 1; vertical-align: middle; position: relative; top: -5.4px; }
+  .rankline .sym { top: 0.5px; }
   .menurank small { display: block; font-size: 12px; font-weight: 400; color: #c9b896; margin-top: 2px; }
   #top #tRank b { color: var(--gold); }
   .ocard .rankline { margin: -8px 0 16px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel2); color: var(--text); font-size: 14px; }
@@ -3293,7 +3296,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     }
     card.appendChild(titleEl(title));
     card.appendChild(el('p', '', sub));
-    if (endOfRun && lastRank) card.appendChild(el('div', 'rankline' + (lastRank.promoted ? ' up' : ''), '🏅 ' + RK.describe(lastRank)));
+    if (endOfRun && lastRank) { const rl = el('div', 'rankline' + (lastRank.promoted ? ' up' : '')); symText(rl, '🏅 ' + RK.describe(lastRank)); card.appendChild(rl); }
     const btn = el('button', 'primary', label);
     btn.onclick = handler;
     card.appendChild(btn);
@@ -3346,11 +3349,18 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     renderAll();
   }
   // The menu's rank line and buttons: Continue + Abandon while a ranked run is in progress, otherwise Play.
+  // Text with league symbols / the medal: each symbol gets its own span so it can be centred on the text (.sym).
+  const SYMRE = new RegExp('(' + Object.values(RK.SYMBOLS).concat(['🏅']).join('|') + ')');
+  function symText(parent, text) {
+    parent.textContent = '';
+    text.split(SYMRE).forEach((part, i) => { if (!part) return; if (i % 2) parent.appendChild(el('span', 'sym', part)); else parent.appendChild(document.createTextNode(part)); });
+  }
   function paintMenu(note) {
     const done = tutDone();
     const r = rstore.load();
     const mr = $('menuRank'); mr.innerHTML = '';
-    mr.appendChild(document.createTextNode('Rank: ' + leagueTag(RK.name(r))));
+    mr.appendChild(document.createTextNode('Rank: ' + RK.name(r) + ' '));
+    mr.appendChild(el('span', 'sym', RK.SYMBOLS[RK.name(r)] || ''));
     mr.appendChild(el('small', '', pointsText(r) + (run ? ' · run in progress: ' + run.wins + ' win' + (run.wins === 1 ? '' : 's') + ', ' + run.lives + ' lives' : '')));
     $('menuCont').classList.toggle('hidden', !run);
     $('menuAbandon').classList.toggle('hidden', !run);
@@ -3360,7 +3370,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     $('menuTut').classList.toggle('btnpulse', !done);
     $('menuTut').textContent = 'Tutorial';
     $('menuSkip').classList.toggle('hidden', done);
-    $('menuNote').textContent = note || (done ? '' : 'Finish or skip the tutorial to unlock Play.');
+    symText($('menuNote'), note || (done ? '' : 'Finish or skip the tutorial to unlock Play.'));
   }
   function showMenu(note) {
     tut = null;
