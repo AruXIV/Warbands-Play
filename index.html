@@ -399,28 +399,30 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     crossPer: 1, crossAtk: 4.5, gildedPer: [2, 3, 4], gildedSpeed: [1.0, 1.5, 2.0], gildedAtk: 7, // Crossbowman attack per different race and base attack; Gilded Drake: attack per different race and extra speed with 3 different races, per level
     lion: [0.08, 0.12, 0.12], lionAdj: 0.15, lionAtk: 7, // Lionheart: own speed per different race (L1/L2/L3), L3 speed for adjacent non-Humans
     // Elf (mono only)
-    song: [0.02, 0.03, 0.03], songFull: 0.02,            // Songweaver: Elf speed per Elf (L1/L2/L3), full Elf board extra
+    song: [0.03, 0.035, 0.035], songFull: 0.02,        // Songweaver: Elf speed per Elf (L1/L2/L3), full Elf board extra
     wyrm: [0.06, 0.08, 0.08], wyrmFull: 0.04, wyrmL3: 1, wyrmAtk: 7, // Verdant Wyrm: Elf speed per Elf, full extra, L3 damage per Elf
     sentinel: [0.10, 0.10, 0.20], rangerL3: 0.20,         // Sentinel: speed for adjacent (L2+: diagonal too) Elves; Ranger L3 own speed
     ranger: 0.2, rangerAtk: 5, spell: [2.5, 5, 5], spellAtk: 5, // Ranger attack per Elf; Spellweaver bolt damage per Elf
-    moon: 0.06, moonPer: 0.005,                        // Moon Priestess heal, + per Elf
+    moon: 0.06, moonPer: 0.005, moonHaste: [0.01, 0.01, 0.05], // Moon Priestess heal, + per Elf; Elf speed per heal (L1/L2/L3)
     dancer: [3, 4, 4], dancerL3: 0.02, dancerMax: 0.20, dancerAtk: 7.5, // Bladedancer: Elf speed counts x; L3 speed per hit to other Elves, max
+    clericLv: [1, 1.2, 1.4],                           // Dryad, Moon Priestess, Runepriest: heal/shield multiplier per level
+    clericEvery: [2.5, 2.5, 2],                        // Dryad, Moon Priestess, Runepriest: seconds between heals per level
     // Orc (gives attack: "hit X% harder")
     grunt: [0.15, 0.20, 0.22], gruntAtk: 4,          // Grunt: adjacent units hit harder (L3 also diagonal), own attack
     bruteAtk: 3,
     blood: 1.25, bloodFull: 0.5, bloodAtk: 4,               // Bloodrager: attack per Orc, full Orc board extra, base attack
-    drum: 0.10, drumEvery: 2,                          // War Drummer: hit harder per beat, seconds per beat
+    drum: 0.12, drumEvery: 2, drumFirst: [1, 1, 0],     // War Drummer: hit harder per beat, seconds per beat, time of the first beat (L1/L2/L3)
     shaman: [0.35, 0.50, 0.50],                        // Shaman: adjacent units hit harder
     skull: [0.80, 1.20, 1.20], skullAdj: 0.25, skullAtk: 10, // Skullsplitter: hits harder while the enemy bar is below half; L3 adjacent
     ash: [0.05, 0.08, 0.08], ashFull: [0.05, 0.08, 0.08], ashRamp: 0.5, ashAtk: 8, // Ashmaw: Orcs hit harder per Orc, full extra, L3 own ramp, base attack
     // Dwarf (gives shield)
-    sb: [0.07, 0.11, 0.11], rune: 0.08,                // Shieldbearer shield; Runepriest shield per rune
+    sb: [0.07, 0.11, 0.11], rune: 0.09,                // Shieldbearer shield; Runepriest shield per rune
     slayer: 1.5, slayerFull: 2, slayerAtk: 3,            // Slayer: attack per Dwarf, full extra, base attack
     magma: [0.03, 0.035, 0.035], magmaFull: 0.02, magmaAtk: 6, // Magma Drake: shield per Dwarf, full extra, base attack
     iron: [0.035, 0.025, 0.025], ironL3: 0.06, ironAtk: 6, // Ironbreaker: +1 attack per this share of the bar blocked; L3 battle-start shield
     // Fae (slows the enemy)
-    pixie: [0.03, 0.04, 0.04], pixiePer: 0.01, thorn: [0.5, 0.8, 0.8], dryad: 0.07, // Pixie slow (+1% per Fae); Thornguard delay (s); Dryad heal
-    stag: 0.75, stagFull: 0.5, stagAtk: 3, stagSteal: 1.5, // Spirit Stag: attack per Fae, full extra, base, speed per enemy slow
+    pixie: [0.03, 0.04, 0.04], pixiePer: 0.01, thorn: [0.5, 0.8, 0.8], dryad: 0.075, dryadSlow: [0.01, 0.01, 0.03], // Pixie slow (+1% per Fae); Thornguard delay (s); Dryad heal, enemy slow per heal (L1/L2/L3)
+    stag: 1.0, stagFull: 0.5, stagAtk: 3.5, stagSteal: 1.5, // Spirit Stag: attack per Fae, full extra, base, speed per enemy slow
     storm: 0.75, stormFull: 1, stormAtk: 6,           // Twilight Drake: attack per Fae, full extra, base attack
     trickAtk: 7,                                       // Trickster base attack
     change: [1.3, 1.6, 1.6], changeDelay: 1, changeAtk: 5, // Changeling: share of the hardest enemy hit (counted at level 1) it copies; L3 delay (s)
@@ -433,6 +435,8 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   };
   if (root.GAME_TUNE) Object.assign(T, root.GAME_TUNE);   // test hook: balance scripts can try other numbers (unused in the game)
   const pc = x => Math.round(x * 1000) / 10 + '%';
+  // Dryad, Moon Priestess, Runepriest level texts: 'Every Xs. ' only when that level heals more often than the level before.
+  const clericEvery = l => T.clericEvery[l - 1] !== T.clericEvery[l - 2] ? `Every ${T.clericEvery[l - 1]}s. ` : '';
   const CFG = {
     startGold: 10,
     startLives: 5,
@@ -531,10 +535,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       `+${T.ranger} attack per Elf on your board (itself included).`,
       'No other change.',
       `+${pc(T.rangerL3)} attack speed.`] }),
-    def('moonpriestess', 'Moon Priestess', 'Elf', 'Cleric', 3, { kind: 'heal', interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
-      `Every 3s: heals ${pc(T.moon)} of the health bar, +${pc(T.moonPer)} per Elf on your board.`,
-      'Every 2.5s. Heals ×1.25 the Lv 1 amount.',
-      'Every 2s. Heals ×1.5 the Lv 1 amount. Each heal gives your Elves +5% attack speed for the fight.'] }),
+    def('moonpriestess', 'Moon Priestess', 'Elf', 'Cleric', 3, { kind: 'heal', interval: T.clericEvery[0], lvInterval: [0, ...T.clericEvery], lv: [
+      `Every ${T.clericEvery[0]}s: heals ${pc(T.moon)} of the health bar, +${pc(T.moonPer)} per Elf on your board. Each heal gives your Elves +${pc(T.moonHaste[0])} attack speed for the fight.`,
+      `${clericEvery(2)}Heals ×${T.clericLv[1]} the Lv 1 amount.`,
+      `${clericEvery(3)}Heals ×${T.clericLv[2]} the Lv 1 amount. Elf attack speed per heal +${pc(T.moonHaste[1])} → +${pc(T.moonHaste[2])}.`] }),
     def('songweaver', 'Songweaver', 'Elf', 'Bard', 3, { atk: 3, interval: 2, mono: true, lv: [
       `Your Elves get +${pc(T.song[0])} attack speed per Elf on your board. Full Elf board: +${pc(T.songFull)} extra.`,
       `Elf attack speed +${pc(T.song[0])} → +${pc(T.song[1])} per Elf.`,
@@ -565,7 +569,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       'No other change.',
       '+30% attack speed once your health bar is below half.'] }),
     def('drummer', 'War Drummer', 'Orc', 'Bard', 3, { atk: 2, interval: 2, lv: [
-      `Every ${T.drumEvery}s: adjacent units get +${pc(T.drum)} attack for the rest of the fight.`,
+      `First beat after ${T.drumFirst[0]}s, then every ${T.drumEvery}s: adjacent units get +${pc(T.drum)} attack for the rest of the fight.`,
       'Also reaches diagonal units.',
       'The first beat comes at battle start.'] }),
     def('shaman', 'Shaman', 'Orc', 'Mage', 4, { atk: 5, interval: 2, lv: [
@@ -589,10 +593,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       '+1 attack per 6% of the health bar in your battle-start shield.',
       'No other change.',
       'The first shot comes at battle start.'] }),
-    def('runepriest', 'Runepriest', 'Dwarf', 'Cleric', 3, { kind: 'heal', ward: true, interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
-      `Every 3s: adds a shield of ${pc(T.rune)} of the health bar.`,
-      'Every 2.5s. Shield ×1.25 the Lv 1 amount.',
-      'Every 2s. Shield ×1.5 the Lv 1 amount. Each shield gives your Dwarves +1 attack for the fight.'] }),
+    def('runepriest', 'Runepriest', 'Dwarf', 'Cleric', 3, { kind: 'heal', ward: true, interval: T.clericEvery[0], lvInterval: [0, ...T.clericEvery], lv: [
+      `Every ${T.clericEvery[0]}s: adds a shield of ${pc(T.rune)} of the health bar.`,
+      `${clericEvery(2)}Shield ×${T.clericLv[1]} the Lv 1 amount.`,
+      `${clericEvery(3)}Shield ×${T.clericLv[2]} the Lv 1 amount. Each shield gives your Dwarves +1 attack for the fight.`] }),
     def('slayer', 'Slayer', 'Dwarf', 'Berserker', 3, { atk: T.slayerAtk, interval: 2, mono: true, lv: [
       `+${T.slayer} attack per Dwarf on your board. Full Dwarf board: +${T.slayerFull} extra.`,
       'No other change.',
@@ -618,10 +622,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       `Battle start: the enemy\'s first hits come ${T.thorn[0]}s later.`,
       `${T.thorn[0]}s → ${T.thorn[1]}s later.`,
       'Enemy attack speed −5%.'] }),
-    def('dryad', 'Dryad', 'Fae', 'Cleric', 3, { kind: 'heal', interval: 3, lvInterval: [0, 3, 2.5, 2], lv: [
-      `Every 3s: heals ${pc(T.dryad)} of the health bar.`,
-      'Every 2.5s. Heals ×1.25 the Lv 1 amount.',
-      'Every 2s. Heals ×1.5 the Lv 1 amount. Each heal gives enemy −3% attack speed for the fight.'] }),
+    def('dryad', 'Dryad', 'Fae', 'Cleric', 3, { kind: 'heal', interval: T.clericEvery[0], lvInterval: [0, ...T.clericEvery], lv: [
+      `Every ${T.clericEvery[0]}s: heals ${pc(T.dryad)} of the health bar. Each heal gives enemy −${pc(T.dryadSlow[0])} attack speed for the fight.`,
+      `${clericEvery(2)}Heals ×${T.clericLv[1]} the Lv 1 amount.`,
+      `${clericEvery(3)}Heals ×${T.clericLv[2]} the Lv 1 amount. Enemy slow per heal −${pc(T.dryadSlow[1])} → −${pc(T.dryadSlow[2])}.`] }),
     def('spiritstag', 'Satyr', 'Fae', 'Berserker', 3, { atk: T.stagAtk, interval: 2, mono: true, lv: [
       `+${T.stag} attack per Fae on your board. Full Fae board: +${T.stagFull} extra. Stolen speed: gains ${T.stagSteal}× the enemy\'s slow as attack speed.`,
       'No other change.',
@@ -864,7 +868,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
           if (u.level === 3) u.adj.forEach(a => { a.enrage += 1; });
           break;
         case 'drummer':
-          u.beat = u.level === 3 ? 0 : T.drumEvery;   // time of the next drumbeat
+          u.beat = L(u, ...T.drumFirst);   // time of the next drumbeat
           break;
         case 'shaman':
           (u.level === 3 ? u.near : u.adj).forEach(a => { a.atkPct += L(u, ...T.shaman); });
@@ -999,10 +1003,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       const more = L(u, 1, 1.5, 2);
       return side.max * (T.priest[0] + T.priest[1] * side.team.diff) * more;
     }
-    if (u.id === 'moonpriestess') return side.max * (T.moon + T.moonPer * side.team.count.Elf) * L(u, 1, 1.25, 1.5);
+    if (u.id === 'moonpriestess') return side.max * (T.moon + T.moonPer * side.team.count.Elf) * L(u, ...T.clericLv);
     // Runepriest: the value is shield, not health (Runesmith makes it bigger).
-    if (u.id === 'runepriest') return side.max * T.rune * L(u, 1, 1.25, 1.5) * side.team.shieldMult;
-    if (u.id === 'dryad') return side.max * T.dryad * L(u, 1, 1.25, 1.5);
+    if (u.id === 'runepriest') return side.max * T.rune * L(u, ...T.clericLv) * side.team.shieldMult;
+    if (u.id === 'dryad') return side.max * T.dryad * L(u, ...T.clericLv);
     return 0;
   }
 
@@ -1091,10 +1095,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
                 heal[si] += v;
                 events.push({ side: si, uid: u.uid, kind: 'heal', value: v });
               }
-              if (u.id === 'moonpriestess' && u.level === 3) {
-                side.units.forEach(a => { if (a.race === 'Elf') { a.speedBonus += 0.05; a.elfSpeed += 0.05; setSpeed(a); } });
-              }
-              if (u.id === 'dryad' && u.level === 3) slowAdd[1 - si] += 0.03;
+              const mh = u.id === 'moonpriestess' ? L(u, ...T.moonHaste) : 0;
+              if (mh) side.units.forEach(a => { if (a.race === 'Elf') { a.speedBonus += mh; a.elfSpeed += mh; setSpeed(a); } });
+              const ds = u.id === 'dryad' ? L(u, ...T.dryadSlow) : 0;
+              if (ds) slowAdd[1 - si] += ds;
             } else {
               u.attacks++;
               let v = atkValue(u, side, b.t);
