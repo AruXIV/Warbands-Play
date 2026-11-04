@@ -3916,7 +3916,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     if (!b || !b.stats) return null;
     return b.sides.map((side, si) => side.units.map(u => {
       const s = b.stats[si][u.uid] || { dmg: 0, heal: 0, ward: 0 };
-      return { name: u.def.name, race: u.race, level: u.level, dmg: s.dmg, heal: s.heal, ward: s.ward };
+      return { name: u.def.name, race: u.race, level: u.level, core: !!u.def.core, dmg: s.dmg, heal: s.heal, ward: s.ward };
     }));
   }
   function statsPanel() {
@@ -3928,7 +3928,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       if (!rows.length) { box.appendChild(el('div', 'srow empty', 'No units')); return; }
       rows.slice().sort((x, y) => (y.dmg + y.heal + y.ward) - (x.dmg + x.heal + x.ward)).forEach(r => {
         const row = el('div', 'srow');
-        row.appendChild(el('span', 'sname chip race-' + r.race, r.name + (r.level > 1 ? ' ' + '★'.repeat(r.level - 1) : '')));
+        row.appendChild(el('span', 'sname chip race-' + r.race, r.name + (r.core ? '' : ' ' + '★'.repeat(r.level))));
         const parts = el('span', 'sparts');
         [['dmg', '⚔', r.dmg], ['heal', '✚', r.heal], ['ward', '🛡', r.ward]].forEach(([k, ico, v]) => {
           if (v <= 0) return;
@@ -3943,7 +3943,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       });
     });
     const fine = el('div', 'sfine');
-    [['⚔', ' damage dealt · '], ['✚', ' health restored · '], ['🛡', ' shield granted. Buffs and slows are not counted.']].forEach(([i, txt]) => {
+    [['⚔', ' damage dealt · '], ['✚', ' health restored · '], ['🛡', ' shield granted']].forEach(([i, txt]) => {
       fine.appendChild(el('span', 'sico', i)); fine.appendChild(document.createTextNode(txt));
     });
     box.appendChild(fine);
