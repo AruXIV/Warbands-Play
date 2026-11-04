@@ -278,6 +278,8 @@
   #tut .tuttext { font-size: 14px; line-height: 1.5; }
   #tut .tutbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
   #tut .tutbtns button.hidden { display: none; }
+  #tutSkip { margin-right: auto; }   /* top left of the top bar, only during the tutorial */
+  #tutSkip.hidden { display: none; }
   .linkbtn { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: 14px; padding: 4px 8px; box-shadow: none; }
   .linkbtn:hover { color: var(--text); }
   #tut.nudge { animation: nudge .4s; }
@@ -359,13 +361,14 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     <span class="stat">Wins <b id="tWins">0</b>/<span id="tTarget">10</span></span>
     <span class="stat">Races <span id="tPool"></span></span>
     <span class="hbtns">
+      <button id="tutSkip" class="hidden">Skip tutorial</button>
       <button id="btnHelp" title="How to play" aria-label="How to play"><span class="ico">❓</span><span class="lbl"> How to play</span></button>
       <button id="btnSound" title="Sound" aria-label="Sound"><span class="ico">🔊</span><span class="lbl"> Sound on</span></button>
       <button id="btnMenu" title="Main menu" aria-label="Main menu"><span class="ico">☰</span><span class="lbl"> Menu</span></button>
     </span>
   </header>
   <div id="msg"></div>
-  <section id="tut" class="hidden"><div class="tuttag"></div><div class="tuttitle"></div><div class="tuttext"></div><div class="tutbtns"><button id="tutSkip">Skip tutorial</button><button id="tutNext" class="primary">Next</button></div></section>
+  <section id="tut" class="hidden"><div class="tuttag"></div><div class="tuttitle"></div><div class="tuttext"></div><div class="tutbtns"><button id="tutNext" class="primary">Next</button></div></section>
 
   <main id="arena">
     <section class="side" id="playerSide">
@@ -3630,6 +3633,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   function tutRender() {
     const box = $('tut');
     const st = curStep();
+    $('tutSkip').classList.toggle('hidden', !tut);
     if (!tut || !st) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     box.querySelector('.tuttag').textContent = st.free || st.round > TUT.LESSONS ? 'Tutorial · round ' + S.round + ' · free play' : 'Tutorial · lesson round ' + st.round + ' of ' + TUT.LESSONS;
