@@ -6,3 +6,6 @@ A pixel-art medieval fantasy auto battler for the browser. Build a warband, merg
 
 ## Play
 Open `index.html` in a browser. The first launch starts with a short tutorial, and Play unlocks after it.
+
+---
+© 2026 AruXIV. All rights reserved. See [LICENSE](LICENSE).
