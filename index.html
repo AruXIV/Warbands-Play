@@ -97,7 +97,7 @@
   [data-drag-uid] { touch-action: none; }
   body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
   .dragsrc { opacity: .4; }
-  #shop.dropover { outline-color: #e0574a; background: #e0574a22; }
+  #shop.dropover, #corePanel.dropover { outline-color: #e0574a; background: #e0574a22; }
   .dropover { outline: 3px dashed var(--gold); outline-offset: -3px; background: #e8b84a22; }
   .unit.ghost { position: fixed; z-index: 30; margin: 0; pointer-events: none; opacity: .92; transform: scale(1.05); box-shadow: 0 6px 16px #000a; }
   .unit.selected { outline: 3px solid var(--gold); outline-offset: 1px; }
@@ -1921,14 +1921,22 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     const offer = s.script && s.script.coreOffer ? s.script.coreOffer.slice() : coreOffer(s.pool, s.rng);
     s.coreShop = { round: s.round, offer, cost: CFG.coreCost, open: true, picked: null };
   }
-  function buyCore(s, i) {
+  // to (optional): { board: cell } or { bench: slot } to place it there (drag and drop, or click the Core and then a spot).
+  function buyCore(s, i, to) {
     const c = s.coreShop;
     if (s.phase !== 'shop' || !c || !c.open) return fail('No Core to pick right now.');
     const id = c.offer[i];
     if (!id) return fail('No such Core.');
     if (s.gold < c.cost) return fail('Not enough gold.');
     let place = null;
-    for (let cell = 0; cell < CELLS && !place; cell++) if (findPlacement(s.board, BY_ID[id].w, cell) >= 0) place = { board: cell };
+    if (to && to.board !== undefined) {
+      if (unitAt(s.board, to.board) || findPlacement(s.board, BY_ID[id].w, to.board) < 0) return fail('That cell is taken. Pick an empty cell, or a bench slot.');
+      place = { board: findPlacement(s.board, BY_ID[id].w, to.board) };
+    } else if (to && to.bench !== undefined) {
+      if (s.bench[to.bench]) return fail('That bench slot is taken.');
+      place = { bench: to.bench };
+    }
+    if (!place) for (let cell = 0; cell < CELLS && !place; cell++) if (findPlacement(s.board, BY_ID[id].w, cell) >= 0) place = { board: cell };
     if (!place) { const slot = s.bench.indexOf(null); if (slot >= 0) place = { bench: slot }; }
     if (!place) return fail('Your board and bench are full. Sell a unit first.');
     const unit = { uid: s.nextUid++, id, level: 1, grow: 0 };
@@ -3303,6 +3311,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       meta.appendChild(el('div', 'coretag', d.coreKind === 'mono' ? '◈ Mono Core' : '◇ Mixed Core'));
       { const cs = el('span', 'cost'); cs.appendChild(goldSpan(c.cost).childNodes[0]); cs.appendChild(el('span', 'num', String(c.cost))); card.appendChild(cs); }
       card.appendChild(meta);
+      card.dataset.dragCore = idx;
       card.onclick = () => onCore(idx);
       card.onmouseenter = () => { hoverInfo = { d, unit: null, side: -1, el: card }; renderInfo(); };
       card.onmouseleave = () => { hoverInfo = null; renderInfo(); };
@@ -3314,6 +3323,12 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     box.appendChild(skip);
   }
   const coreOk = (a, idx) => a.core === true || (Array.isArray(a.core) && a.core.indexOf(idx) >= 0);
+  // Buy the selected Core onto a board cell or bench slot (click the Core, then the spot, or drag it there).
+  function coreTo(idx, to) {
+    const ta = allowOf();
+    if (ta && !coreOk(ta, idx)) { tutNo(ta.core ? 'Take the highlighted Core.' : ''); return; }
+    act(G.buyCore(S, idx, to), 'buy');
+  }
   function onCore(idx) {
     if (S.phase !== 'shop' || !S.coreShop || !S.coreShop.open) return;
     const ta = allowOf();
@@ -3670,6 +3685,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   function onSlot(cell) {
     if (!sel) return;
     const ta = allowOf();
+    if (sel.kind === 'core') { coreTo(sel.idx, { board: cell }); return; }
     if (sel.kind === 'shop') {
       if (ta && !toOk(ta, 'cell', cell)) { tutNo('Not there: use a highlighted spot.'); return; }
       act(G.buyToCell(S, sel.idx, cell));
@@ -3687,6 +3703,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       if (ta && !unitOk(ta, G.BY_ID[u.id])) { tutNo(); return; }
       sel = { kind: 'unit', uid }; renderAll(); return;
     }
+    if (sel.kind === 'core') { coreTo(sel.idx, { board: u.cell }); return; }
     if (sel.kind === 'shop') {
       if (ta && !toOk(ta, 'cell', u.cell)) { tutNo('Not there: use a highlighted spot.'); return; }
       act(G.buyToCell(S, sel.idx, u.cell)); return;
@@ -3706,6 +3723,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       }
       return;
     }
+    if (sel.kind === 'core') { coreTo(sel.idx, { bench: slot }); return; }
     if (sel.kind === 'shop') {
       if (ta && !toOk(ta, 'bench', slot)) { tutNo('Not there: use a highlighted spot.'); return; }
       act(G.buyToBench(S, sel.idx, slot)); return;
@@ -3722,9 +3740,10 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   let drag = null;
   function dropTargetAt(x, y) {
     const hit = document.elementFromPoint(x, y);
-    const t = hit ? hit.closest('[data-drop-cell],[data-drop-bench],#shop') : null;
-    // The shop is a drop target only for your own units: dropping one on it sells it.
-    if (t && t.id === 'shop' && !(drag && drag.src && drag.src.dataset.dragUid !== undefined)) return null;
+    const t = hit ? hit.closest('[data-drop-cell],[data-drop-bench],#shop,#corePanel') : null;
+    // The shop (and the Core choice that takes its place in round 5) is a drop target only for your own units: dropping one sells it.
+    const sellZone = t && (t.id === 'shop' || t.id === 'corePanel');
+    if (sellZone && !(drag && drag.src && drag.src.dataset.dragUid !== undefined)) return null;
     return t;
   }
   function endDrag() {
@@ -3737,11 +3756,11 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   }
   document.addEventListener('pointerdown', e => {
     if (e.button !== 0 || !S || S.phase !== 'shop' || $('overlay').classList.contains('hidden') === false) return;
-    const src = e.target.closest('[data-drag-shop],[data-drag-uid]');
+    const src = e.target.closest('[data-drag-shop],[data-drag-uid],[data-drag-core]');
     if (!src) return;
     const ta = allowOf();
     if (ta) {
-      if (src.dataset.dragShop !== undefined ? !shopOk(ta, +src.dataset.dragShop) : !ta.move) return;
+      if (src.dataset.dragCore !== undefined ? !coreOk(ta, +src.dataset.dragCore) : src.dataset.dragShop !== undefined ? !shopOk(ta, +src.dataset.dragShop) : !ta.move) return;
     }
     drag = { src, x: e.clientX, y: e.clientY, active: false, ghost: null, over: null };
   });
@@ -3750,7 +3769,11 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     if (!drag.active) {
       if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
       drag.active = true;
-      if (drag.src.dataset.dragShop !== undefined) {
+      if (drag.src.dataset.dragCore !== undefined) {
+        const idx = +drag.src.dataset.dragCore;
+        if (!S.coreShop || !S.coreShop.open || !S.coreShop.offer[idx]) { endDrag(); return; }
+        sel = { kind: 'core', idx };
+      } else if (drag.src.dataset.dragShop !== undefined) {
         const idx = +drag.src.dataset.dragShop;
         if (!S.shop[idx]) { endDrag(); return; }
         sel = { kind: 'shop', idx };
@@ -3783,14 +3806,19 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     if (!drag) return;
     if (!drag.active) { drag = null; return; }
     const target = dropTargetAt(e.clientX, e.clientY);
-    const sellUid = drag.src.dataset.dragUid;
+    const sellUid = drag.src.dataset.dragUid, coreIdx = drag.src.dataset.dragCore;
     endDrag();
     // The click that follows a drag must not do anything.
     const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
     document.addEventListener('click', swallow, { capture: true, once: true });
     setTimeout(() => document.removeEventListener('click', swallow, true), 0);
     if (!target || S.phase !== 'shop') { sel = null; renderAll(); return; }
-    if (target.id === 'shop') {
+    if (coreIdx !== undefined) {   // a Core card dropped on a cell or bench slot
+      if (target.id === 'shop' || target.id === 'corePanel') { sel = null; renderAll(); return; }
+      coreTo(+coreIdx, target.dataset.dropBench !== undefined ? { bench: +target.dataset.dropBench } : { board: +target.dataset.dropCell });
+      return;
+    }
+    if (target.id === 'shop' || target.id === 'corePanel') {
       const mine = S.board.concat(S.bench.filter(Boolean)).find(x => String(x.uid) === sellUid);
       if (!mine) { sel = null; renderAll(); return; }
       const ta = allowOf();
