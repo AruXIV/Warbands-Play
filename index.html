@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Warbands. © 2026 AruXIV. All rights reserved. No copying, changing or reuploading without permission. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -160,9 +161,9 @@
   #info p { margin: 6px 0; }
   #info.idle { visibility: hidden; }
   #info .tip { color: var(--muted); }
-  #info .lvline { color: var(--muted); padding-left: 6px; border-left: 3px solid transparent; }
+  #info .lvline { color: var(--muted); }
   #info .lvline b { color: var(--text); }
-  #info .lvline.cur { color: var(--text); border-left-color: var(--gold); }
+  #info .lvline.cur { color: var(--text); }
   #info .lvline.next { opacity: .75; }
   #info .lvline .mult { color: #9ec7ff; }
   #info .lvnote { font-size: 11px; color: var(--muted); margin: 2px 0 6px; }
@@ -210,6 +211,7 @@
   .menupanel { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 340px; padding: 20px 22px 16px; background: #1b122acc; border: 3px solid #8a6330; border-radius: 12px; box-shadow: 0 6px 0 #0007, inset 0 0 0 2px #3a2a1a; }
   .menucard button.big { width: 100%; max-width: 280px; font-size: 20px; padding: 14px 18px; }
   .menunote { min-height: 18px; font-size: 13px; color: var(--gold); }
+  .menucopy { margin-top: 14px; font-size: 13px; color: #e6dcf2; opacity: .85; letter-spacing: .5px; text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px 0 0 #000, 0 1px 0 #000; }
   /* ranked leagues */
   .menurank { font-size: 18px; font-weight: 700; color: #fff1d0; }
   .menurank .sym { display: inline-block; line-height: 1; vertical-align: middle; position: relative; top: -7.4px; }
@@ -406,6 +408,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     <button id="menuAbandon" class="hidden">Abandon run</button>
     <div class="menunote" id="menuNote"></div>
     </div>
+    <div class="menucopy">© 2026 AruXIV · All rights reserved</div>
   </div>
 </div>
 <div id="overlay" class="hidden"></div>
@@ -3502,7 +3505,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     const curLv = unit ? unit.level : 1;
     const used = new Set();
     d.lv.forEach((t, i) => {
-      const row = el('p', 'lvline' + (i + 1 === curLv ? ' cur' : '') + (i + 1 > curLv ? ' next' : ''));
+      const row = el('p', 'lvline' + (i + 1 <= curLv ? ' cur' : ' next'));   // every level the unit has reached reads as active
       if (!d.core) row.appendChild(el('b', '', 'Lv ' + (i + 1) + ' '));   // Cores never level up: no level label
       rich(row, t, used);
       box.appendChild(row);
