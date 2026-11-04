@@ -372,7 +372,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
 
   <main id="arena">
     <section class="side" id="playerSide">
-      <div class="title">Your warband</div>
+      <div class="title" id="playerTitle">Your warband</div>
       <div class="bar" id="playerBar"><div class="track"><div class="fill"></div><div class="shieldbar"></div></div><div class="label"></div><div class="floats"></div><div class="slowtag"></div></div>
       <div id="foeline" class="hidden"></div>
       <div class="grid" id="playerGrid"></div>
@@ -3582,11 +3582,17 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       const lg = inFight && S.enemy && S.enemy.league;
       t.appendChild(document.createTextNode('Enemy warband' + (lg ? ' (' + S.enemy.league + ' ' : '')));
       if (lg) { t.appendChild(el('span', 'sym', RK.SYMBOLS[S.enemy.league] || '')); t.appendChild(document.createTextNode(')')); }
-      if (inFight && S.enemy) {
-        const row = el('div', 'enemyraces');
-        S.enemy.races.forEach(r => row.appendChild(el('span', 'chip race-' + r, r === 'Neutral' ? 'Prismatic' : r)));
-        t.appendChild(row);
-      }
+      // In a fight, both titles show the races that are really on that board (not the run pool), so they always match the units.
+      const raceRow = ids => {
+        const row = el('div', 'enemyraces'), seen = [];
+        ids.forEach(id => { const r = G.BY_ID[id] && G.BY_ID[id].race; if (r && !seen.includes(r)) seen.push(r); });
+        seen.forEach(r => row.appendChild(el('span', 'chip race-' + r, r === 'Neutral' ? 'Prismatic' : r)));
+        return row;
+      };
+      if (inFight && S.enemy) t.appendChild(raceRow(S.enemy.slots.map(x => x.id)));
+      const pt = $('playerTitle');
+      pt.textContent = 'Your warband';
+      if (inFight) pt.appendChild(raceRow(S.board.map(u => u.id)));
     }
     renderTop();
     renderGrid(0);
