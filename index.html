@@ -104,7 +104,7 @@
   .unit .ico { font-size: calc(var(--cell) * .40); line-height: 1; }
   .unit .sprite { -webkit-user-drag: none; user-select: none; width: 94%; height: auto; max-height: calc(100% - 14px); min-height: 0; flex: 0 1 auto; image-rendering: pixelated; object-fit: contain; }
   .unit .nm { font-size: 10px; font-weight: 700; text-shadow: 0 1px 0 #000; text-align: center; line-height: 1.1; padding: 0 2px; }
-  .unit .stars { position: absolute; top: 2px; right: 4px; color: var(--gold); font-size: 11px; text-shadow: 0 1px 0 #000; }
+  .unit .stars { position: absolute; top: 2px; right: 4px; color: var(--gold); font-size: 11px; text-shadow: -1px -1px 0 #000, 0 -1px 0 #000, 1px -1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, -1px 1px 0 #000, 0 1px 0 #000, 1px 1px 0 #000; }
   .unit .badge { position: absolute; left: 4px; bottom: 3px; font-size: 11px; font-weight: 700; background: #000b; padding: 0 4px; border-radius: 3px; }
   .unit.mirror .ico, .unit.mirror .sprite { transform: scaleX(-1); }
   .unit.atk-r { animation: lunge-r .26s ease-out; }
@@ -3088,8 +3088,8 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     } else {
       t.appendChild(icon());
     }
-    const lv = o.level || 1;
-    if (lv > 1) t.appendChild(el('div', 'stars', '★'.repeat(lv)));
+    // Level stars on units on the board and bench (shop and Core cards pass no level). Cores never level up: no star.
+    if (o.level && !d.core) t.appendChild(el('div', 'stars', '★'.repeat(o.level)));
     if (o.badge) t.appendChild(el('div', 'badge', o.badge));
     return t;
   }
