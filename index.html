@@ -2860,6 +2860,45 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   const ICON = { Warrior: '🛡️', Archer: '🏹', Mage: '🔮', Cleric: '💚', Bard: '🎵', Champion: '⚔️', Peasant: '🌾', Berserker: '🪓', Rogue: '🗡️', Dragon: '🐉' };
 
   const $ = id => document.getElementById(id);
+  // Icon alignment. Emoji fonts differ between Windows, Mac, Linux and phones, so a fixed CSS nudge only looks centred on one of
+  // them. Instead this measures, in the player's own fonts, where the icon's ink and the text's ink sit (canvas measureText) and
+  // moves the icon so both middles line up. Runs on every icon that appears or changes.
+  const ALIGN_SEL = '#top .ico, #top .sym, .menurank .sym, .menunote .sym, .rankline .sym, #enemyTitle .sym, button .icon, button .gold .coin, .sico';
+  const inkCache = new Map();
+  let inkCtx = null;
+  const fontOf = s => `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+  function inkMid(font, text) {   // height of the ink's middle above the baseline, in px
+    const k = font + '|' + text;
+    if (inkCache.has(k)) return inkCache.get(k);
+    inkCtx = inkCtx || document.createElement('canvas').getContext('2d');
+    inkCtx.font = font;
+    const m = inkCtx.measureText(text);
+    const v = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+    inkCache.set(k, v);
+    return v;
+  }
+  function alignIcon(ic) {
+    try {
+      const host = ic.closest('button') || ic.parentElement;
+      if (!host || !ic.textContent) return;
+      const g = ic.parentElement.classList.contains('gold') ? ic.parentElement : null;
+      if (g) {   // coin + number: plain inline text on the button's baseline
+        g.style.display = 'inline'; g.style.top = '0'; g.style.verticalAlign = 'baseline';
+        const n = g.querySelector('.num'); if (n) { n.style.display = 'inline'; n.style.transform = 'none'; }
+      }
+      // the text's optical middle: halfway between the middles of a capital and a small letter (descenders do not count)
+      const hf = fontOf(getComputedStyle(host));
+      const shift = inkMid(fontOf(getComputedStyle(ic)), ic.textContent) - (inkMid(hf, 'H') + inkMid(hf, 'x')) / 2;
+      Object.assign(ic.style, { display: 'inline-block', lineHeight: '1', verticalAlign: 'baseline', position: 'relative', transform: 'none',
+        top: shift.toFixed(2) + 'px' });
+    } catch (e) { /* never break the UI over a nudge */ }
+  }
+  let alignQueued = false;
+  const alignAll = () => { alignQueued = false; document.querySelectorAll(ALIGN_SEL).forEach(alignIcon); };
+  const queueAlign = () => { if (!alignQueued) { alignQueued = true; requestAnimationFrame(alignAll); } };
+  if (typeof MutationObserver !== 'undefined') new MutationObserver(queueAlign).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  if (document.fonts) { document.fonts.ready.then(() => { inkCache.clear(); queueAlign(); }); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', () => { inkCache.clear(); queueAlign(); }); }
+  window.addEventListener('resize', queueAlign);
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -3862,7 +3901,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
           if (v <= 0) return;
           const p = el('span', 'spart ' + k);
           const bar = el('i'); bar.style.width = Math.max(6, Math.round(v / top * 100)) + '%';
-          p.appendChild(bar); p.appendChild(el('b', '', ico + ' ' + Math.round(v)));
+          p.appendChild(bar); const lb = el('b'); lb.appendChild(el('span', 'sico', ico)); lb.appendChild(document.createTextNode(' ' + Math.round(v))); p.appendChild(lb);
           parts.appendChild(p);
         });
         if (!parts.childNodes.length) parts.appendChild(el('span', 'snone', 'support only'));
@@ -3870,7 +3909,11 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
         box.appendChild(row);
       });
     });
-    box.appendChild(el('div', 'sfine', '⚔ damage dealt · ✚ health restored · 🛡 shield granted. Buffs and slows are not counted.'));
+    const fine = el('div', 'sfine');
+    [['⚔', ' damage dealt · '], ['✚', ' health restored · '], ['🛡', ' shield granted. Buffs and slows are not counted.']].forEach(([i, txt]) => {
+      fine.appendChild(el('span', 'sico', i)); fine.appendChild(document.createTextNode(txt));
+    });
+    box.appendChild(fine);
     return box;
   }
   // Result title: a leading emoji is wrapped so it can be centred on the text (see .h2ico).
