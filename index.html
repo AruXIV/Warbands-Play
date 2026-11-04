@@ -1684,7 +1684,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   };
   function pickComp(round, rng, league, races) {
     const li = LEAGUE_ORDER.indexOf(league);
-    const t = li >= 0 ? li / (LEAGUE_ORDER.length - 1) : 0.5;
+    const t = li >= 0 ? li / (LEAGUE_ORDER.length - 1) : league === 'Tutorial' ? 0 : 0.5;   // the tutorial plays like Iron's comps
     const ok = {
       splash: round <= COMP_SPLASH_ROUNDS,
       mono: races.some(r => r !== 'Human'),
@@ -1715,12 +1715,14 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     rest.forEach((x, i) => { x.cell = cells[i]; });
   }
 
+  // The tutorial's free play rounds (round 6 on): weaker than Iron, it is a player's first game. Not a ranked league.
+  const TUTORIAL_ENEMY = { gold: 0.58 };
   // Gold an enemy team may spend in this round: what a player has been given so far (goldFor of every round up to this one),
   // times the league's factor (LEAGUE_ENEMY[league].gold; no league: ENEMY_GOLD).
   const enemyBudget = (round, league) => {
     let g = 0;
     for (let r = 1; r <= round; r++) g += goldFor(r);
-    const L = league && LEAGUE_ENEMY[league];
+    const L = league && (LEAGUE_ENEMY[league] || (league === 'Tutorial' ? TUTORIAL_ENEMY : null));
     return g * (L && L.gold !== undefined ? L.gold : ENEMY_GOLD);
   };
   // Buys an enemy team like a player: one unit per plan entry (at most ENEMY_MAX_COPIES copies of a unit), cheaper units if the
@@ -2365,6 +2367,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
  *         move   true: units can be moved on the board and bench
  *         core   [offer indexes] or true       which cards of the round 5 Core offer can be bought
  *         sell, reroll, fight   true: the button works
+ * hl:     'lock' (info steps) highlights that button. The Lock button only shows once the lessons are over (fixed lesson shops).
  */
 (function (root) {
   'use strict';
@@ -2506,6 +2509,8 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     // ---- round 6 onward: a normal game
     { kind: 'info', round: 6, title: 'The real thing',
       text: 'The lessons are over. From now on it is a normal game: the shop and the enemies are random, and a defeat costs a life. Reach 10 wins before your lives run out. The coloured chips at the top show which races can appear in your shop.' },
+    { kind: 'info', round: 6, title: 'Lock the shop', hl: 'lock',
+      text: 'Like these cards but can\'t afford them yet? Press 🔓 Lock and the shop keeps them for the next round instead of rolling new ones.' },
     { kind: 'fight', round: 6, free: true, title: 'Free play',
       text: 'Spend your gold, merge copies, arrange your warband and press Fight. Reroll, sell and move units if you like.',
       battleText: 'Your warband, your choices.',
@@ -2515,7 +2520,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   ];
 
   const api = { POOL, WIN_TARGET, LESSONS, script, STEPS, shop, enemy, adj,
-    options: () => ({ pool: POOL, winTarget: WIN_TARGET, script }) };
+    options: () => ({ pool: POOL, winTarget: WIN_TARGET, script, league: 'Tutorial' }) };   // league: enemy strength below Iron (game.js TUTORIAL_ENEMY)
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Tutorial = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3391,7 +3396,9 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       purse.title = 'Your gold';
       purse.appendChild(el('span', 'coin', '🪙'));
       purse.appendChild(el('span', 'num', String(S.gold)));
-      if (tut) c.append(purse, reroll, sellBtn, fight); else c.append(purse, reroll, lock, sellBtn, fight);
+      // The lesson rounds use fixed shops, so Lock only shows once they are over (and in normal games).
+      if (tut && curStep() && curStep().hl === 'lock') lock.classList.add('tut-hl');
+      if (tut && S.round <= TUT.LESSONS) c.append(purse, reroll, sellBtn, fight); else c.append(purse, reroll, lock, sellBtn, fight);
     } else if (S.phase === 'battle') {
       [1, 2, 4].forEach(sp => {
         const b = el('button', sp === speed ? 'on' : '', '×' + sp);
