@@ -211,6 +211,7 @@
   .menupanel { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 340px; padding: 20px 22px 16px; background: #1b122acc; border: 3px solid #8a6330; border-radius: 12px; box-shadow: 0 6px 0 #0007, inset 0 0 0 2px #3a2a1a; }
   .menucard button.big { width: 100%; max-width: 280px; font-size: 20px; padding: 14px 18px; }
   .menunote { min-height: 18px; font-size: 13px; color: var(--gold); }
+  .menucopy .cc { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 1.25em; font-weight: 700; }
   .menucopy { margin-top: 14px; font-size: 13px; color: #e6dcf2; opacity: .85; letter-spacing: .5px; text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px 0 0 #000, 0 1px 0 #000; }
   /* ranked leagues */
   .menurank { font-size: 18px; font-weight: 700; color: #fff1d0; }
@@ -408,7 +409,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     <button id="menuAbandon" class="hidden">Abandon run</button>
     <div class="menunote" id="menuNote"></div>
     </div>
-    <div class="menucopy">© 2026 AruXIV · All rights reserved</div>
+    <div class="menucopy"><span class="cc">©</span> 2026 AruXIV · All rights reserved</div>
   </div>
 </div>
 <div id="overlay" class="hidden"></div>
@@ -2874,7 +2875,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   // Icon alignment. Emoji fonts differ between Windows, Mac, Linux and phones, so a fixed CSS nudge only looks centred on one of
   // them. Instead this measures, in the player's own fonts, where the icon's ink and the text's ink sit (canvas measureText) and
   // moves the icon so both middles line up. Runs on every icon that appears or changes.
-  const ALIGN_SEL = '#top .ico, #top .sym, .menurank .sym, .menunote .sym, .rankline .sym, #enemyTitle .sym, button .icon, button .gold .coin, .sico';
+  const ALIGN_SEL = '#top .ico, #top .sym, .menurank .sym, .menunote .sym, .rankline .sym, #enemyTitle .sym, button .icon, button .gold .coin, .sico, .menucopy .cc';
   const inkCache = new Map();
   let inkCtx = null;
   const fontOf = s => `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
