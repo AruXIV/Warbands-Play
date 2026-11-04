@@ -94,6 +94,7 @@
   .ocard .racelist div { margin: 6px 0; color: var(--text); }
   .ocard .fine { font-size: 12px; margin: 0 0 16px; }
   .unit.top { border-color: var(--gold); box-shadow: inset 0 -6px 0 #0004, 0 0 10px #e8b84a88; }
+  .unit.corebox { border-color: #ffffff; box-shadow: inset 0 -6px 0 #0004, 0 0 10px #ffffffaa; }   /* Cores: white border and glow */
   [data-drag-shop] { touch-action: pan-x; }
   [data-drag-uid] { touch-action: none; }
   body.dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
@@ -3079,7 +3080,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
   }
 
   function makeTile(d, o) {
-    const t = el('div', 'unit race-' + d.race + (d.cls === 'Dragon' ? ' top' : '') + (o.mirror ? ' mirror' : ''));
+    const t = el('div', 'unit race-' + d.race + (d.cls === 'Dragon' ? ' top' : '') + (d.core ? ' corebox' : '') + (o.mirror ? ' mirror' : ''));
     const icon = () => el('div', 'ico', ICON[d.cls]);
     if (USE_SPRITES) {
       const img = new Image();
