@@ -2445,7 +2445,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       text: 'Press Fight! The battle runs by itself.',
       battleText: 'Each side has one shared health bar. Every hit chips the enemy bar. Empty it first and you win.',
       winText: 'You won! That is 1 win out of 10.', loseText: '',
-      allow: { fight: true } },
+      allow: { fight: true, units: true, move: true } },   // moving units before the fight is fine
 
     // ---- round 2: gold, bench, merging, shields
     { kind: 'info', round: 2, title: 'New round, new gold',
@@ -2464,7 +2464,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     { kind: 'fight', round: 2, title: 'Fight!',
       text: 'Press Fight!',
       battleText: 'Watch the blue shield absorb the first hits.', winText: 'Another win! 2 out of 10.', loseText: '',
-      allow: { fight: true } },
+      allow: { fight: true, units: true, move: true } },   // moving units before the fight is fine
 
     // ---- round 3: reroll, and a fight that cannot be won
     { kind: 'do', round: 3, title: 'Reroll',
@@ -2477,13 +2477,13 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
       text: 'Press Fight and see how it goes.',
       battleText: 'Let us see how this one ends.',
       winText: '', loseText: 'You lost this one, and that is fine. A defeat costs you a life (♥) and gives no win. You have 5 lives, and the run ends when they are all gone. Lose a fight, learn, and keep going.',
-      allow: { fight: true } },
+      allow: { fight: true, units: true, move: true } },   // moving units before the fight is fine
 
     // ---- round 4: selling, tiers
     { kind: 'info', round: 4, title: 'Back on track',
       text: 'Sometimes you want to sell a unit to afford a better one. A level 1 unit sells for its full price, a merged unit for a little less.' },
     { kind: 'do', round: 4, title: 'Sell a unit',
-      text: 'Click the Thunderer to select it, then press Sell.',
+      text: 'Click the Thunderer to select it, then press Sell. Or drag it onto the shop.',
       allow: { units: ['thunderer'], sell: true }, done: S => !has(S, 'thunderer') },
     { kind: 'do', round: 4, title: 'Pricier units',
       text: 'Buy the Runepriest: it costs 3 gold. Pricier units are stronger and show up more often in later rounds. It adds shields during the fight.',
@@ -2491,7 +2491,7 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     { kind: 'fight', round: 4, title: 'Fight!',
       text: 'Press Fight!',
       battleText: 'The Runepriest adds a new shield every few seconds.', winText: 'You are back in the lead: 3 wins out of 10.', loseText: '',
-      allow: { fight: true } },
+      allow: { fight: true, units: true, move: true } },   // moving units before the fight is fine
 
     // ---- round 5: the Core
     { kind: 'info', round: 5, title: 'Your Core',
@@ -3782,7 +3782,9 @@ button.primary:hover:not(:disabled){border-color:var(--gold)}
     if (!src) return;
     const ta = allowOf();
     if (ta) {
-      if (src.dataset.dragCore !== undefined ? !coreOk(ta, +src.dataset.dragCore) : src.dataset.dragShop !== undefined ? !shopOk(ta, +src.dataset.dragShop) : !ta.move) return;
+      // own units: draggable to move them, or (when selling is allowed) to drop them on the shop and sell them
+      const ownOk = () => { const u = S.board.concat(S.bench.filter(Boolean)).find(x => String(x.uid) === src.dataset.dragUid); return ta.move || (ta.sell && u && unitOk(ta, G.BY_ID[u.id])); };
+      if (src.dataset.dragCore !== undefined ? !coreOk(ta, +src.dataset.dragCore) : src.dataset.dragShop !== undefined ? !shopOk(ta, +src.dataset.dragShop) : !ownOk()) return;
     }
     drag = { src, x: e.clientX, y: e.clientY, active: false, ghost: null, over: null };
   });
